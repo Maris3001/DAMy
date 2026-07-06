@@ -6,13 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Đề tài tốt nghiệp:** Xây dựng website bán vé xem phim trực tuyến tích hợp ưu đãi khách hàng thành viên — **"Linh Vé Các"**.
 
-Trạng thái: **P1 hoàn thành** — monorepo đã scaffold (`backend/` Spring Boot 3.5.16 + `frontend/` Vue 3/Vite 8), kết nối SQL Server qua Flyway, `GET /api/health` chạy thông qua proxy. Các phase tiếp theo (P2→P8) theo `PLAN.md`. Cập nhật file này khi cấu trúc thực tế thay đổi.
+Trạng thái: **P2 hoàn thành** — monorepo scaffold + kết nối DB (P1); auth JWT hoàn chỉnh (P2): đăng ký/đăng nhập/hồ sơ, role USER/ADMIN, admin seed `admin@linhvecac.vn` / `Admin@123456` (dev). Các phase tiếp theo (P3→P8) theo `PLAN.md`. Cập nhật file này khi cấu trúc thực tế thay đổi.
 
 **Chi tiết môi trường đã dựng (P1):**
-- Backend: Spring Boot **3.5.16**, Java 21, group `com.linhvecac`. Deps: web, data-jpa, security, validation, flyway-core, flyway-sqlserver, mssql-jdbc, lombok, jjwt 0.12.6 (chờ P2).
-- Frontend: Vite 8 + Vue 3.5, Pinia 3, Vue Router 5, axios, Tailwind CSS v4 (`@tailwindcss/vite`). Design tokens trong `frontend/src/assets/main.css` (`@theme`).
+- Backend: Spring Boot **3.5.16**, Java 21, group `com.linhvecac`. Deps: web, data-jpa, security, validation, flyway-core, flyway-sqlserver, mssql-jdbc, lombok, jjwt 0.12.6.
+- Frontend: Vite 8 + Vue 3.5, Pinia 3, Vue Router 5, axios, Tailwind CSS v4 (`@tailwindcss/vite`). Design tokens trong `frontend/src/assets/main.css` (`@theme`); font Be Vietnam Pro self-host trong `frontend/src/assets/fonts/`.
 - DB: SQL Server SQLEXPRESS, DB `linhvecac`. **JDBC nối thẳng `localhost:1433`** (không dùng `instanceName` vì SQL Browser tắt). Dev dùng login `sa` trong `application-local.properties` (gitignored); script tạo DB + login riêng ở `backend/db/00_bootstrap.sql`.
-- Kết nối local KHÔNG commit: `backend/src/main/resources/application-local.properties` (đã gitignore).
+- Kết nối local KHÔNG commit: `backend/src/main/resources/application-local.properties` (đã gitignore) — chứa `DB_URL/DB_USER/DB_PASSWORD` và `JWT_SECRET` (Base64 ≥ 32 bytes, map vào `app.jwt.secret`).
+
+**Auth (P2):** JWT HS256 stateless — `JwtAuthenticationFilter` nạp `User` từ DB làm principal (`@AuthenticationPrincipal User`), authority `ROLE_USER|ROLE_ADMIN`; `/api/auth/**` + `/api/health` permitAll, `/api/admin/**` cần ADMIN, còn lại authenticated. Lỗi trả JSON tiếng Việt thống nhất qua `GlobalExceptionHandler`/`ErrorResponse` (`{message, errors}`); lỗi nghiệp vụ ném `ApiException(HttpStatus, message)`. FE: token localStorage `lvc_token`, interceptor trong `src/api/http.js` (gắn Bearer, auto-logout 401), guard `requiresAuth`/`guestOnly` trong router; component chuẩn tại `src/components/ui/`.
 
 Tài liệu đi kèm:
 - `PLAN.md` — kế hoạch triển khai 8 phase (có checkbox tiến độ), schema DB, thiết kế VNPay/loyalty. Làm theo thứ tự phase trong file này.

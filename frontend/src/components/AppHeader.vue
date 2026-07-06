@@ -1,0 +1,44 @@
+<script setup>
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import BaseButton from './ui/BaseButton.vue'
+
+const auth = useAuthStore()
+const router = useRouter()
+
+function logout() {
+  auth.logout()
+  router.push('/')
+}
+</script>
+
+<template>
+  <header class="border-b border-white/5 bg-surface-900">
+    <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+      <RouterLink to="/" class="text-lg font-semibold text-brand-500">Linh Vé Các</RouterLink>
+
+      <nav class="flex items-center gap-2">
+        <template v-if="auth.isAuthenticated">
+          <RouterLink
+            to="/tai-khoan"
+            class="rounded-lg px-3 py-2 text-sm text-ink-300 transition-colors duration-150 hover:text-ink-100"
+          >
+            {{ auth.user?.fullName ?? 'Tài khoản' }}
+          </RouterLink>
+          <BaseButton variant="ghost" @click="logout">Đăng xuất</BaseButton>
+        </template>
+        <template v-else>
+          <RouterLink
+            to="/dang-nhap"
+            class="rounded-lg px-3 py-2 text-sm text-ink-300 transition-colors duration-150 hover:text-ink-100"
+          >
+            Đăng nhập
+          </RouterLink>
+          <RouterLink to="/dang-ky">
+            <BaseButton variant="secondary">Đăng ký</BaseButton>
+          </RouterLink>
+        </template>
+      </nav>
+    </div>
+  </header>
+</template>

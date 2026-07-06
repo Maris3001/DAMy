@@ -24,11 +24,11 @@
 - [x] `V1__init.sql` baseline (bảng `app_meta`); `GET /api/health` (kiểm DB thật); git init + .gitignore; `SecurityConfig` tạm `permitAll`.
 - **Kiểm tra:** ✅ backend boot + Flyway apply V1 (flyway_schema_history: `1/init/success`); `npm run dev` (5173) → `/api/health` qua proxy trả `{status:UP, db:UP, app:"Linh Vé Các"}` HTTP 200.
 
-### P2 — Auth + đăng ký thành viên
-- [ ] `V2__users.sql`, `V3__seed_admin.sql`. Spring Security + JWT filter, role USER/ADMIN, BCrypt.
-- [ ] API: `POST /api/auth/register`, `POST /api/auth/login`, `GET|PUT /api/users/me`.
-- [ ] FE: trang login/register, `authStore` (token trong localStorage), axios interceptor gắn Bearer, route guard.
-- **Kiểm tra:** đăng ký → đăng nhập → xem hồ sơ; 401 khi không token; admin seed đăng nhập được.
+### P2 — Auth + đăng ký thành viên ✅ HOÀN THÀNH
+- [x] `V2__users.sql`, `V3__seed_admin.sql` (admin dev: `admin@linhvecac.vn` / `Admin@123456`). Spring Security + JWT filter (jjwt 0.12.6, HS256, secret qua `app.jwt.secret` trong application-local), role USER/ADMIN, BCrypt. Kèm `GlobalExceptionHandler` + `ErrorResponse` JSON tiếng Việt thống nhất.
+- [x] API: `POST /api/auth/register` (trả token luôn), `POST /api/auth/login`, `GET|PUT /api/users/me`; `/api/admin/**` chặn `hasRole('ADMIN')` sẵn cho P3.
+- [x] FE: trang login/register/hồ sơ (`/dang-nhap`, `/dang-ky`, `/tai-khoan`), `authStore` (token localStorage key `lvc_token`), axios interceptor gắn Bearer + auto-logout khi 401, route guard `requiresAuth`/`guestOnly` với `?redirect=`. Dựng nền UI: font Be Vietnam Pro self-host, `ui/BaseButton|BaseInput|ErrorState`, `AppHeader`.
+- **Kiểm tra:** ✅ 12 case API PASS (register/409 trùng email/400 validation/login/401 sai mật khẩu/me/PUT me/admin ADMIN/403 USER vào admin); 12 bước E2E Playwright qua UI thật PASS (đăng ký → đăng xuất → guard redirect → login sai hiện lỗi → login đúng quay lại `redirect` → sửa hồ sơ → F5 giữ phiên → token rác bị nhả về login → admin seed login); `mvnw test` xanh, `npm run build` sạch.
 
 ### P3 — Catalog + admin CRUD
 - [ ] `V4__catalog.sql` (regions, cinema_chains, cinemas, rooms, seats, movies, showtimes, concessions) + `V5__seed_catalog.sql` (2 khu vực, 2 hãng, 3 rạp, lưới ghế, 6 phim, 1 tuần suất chiếu, 6 món bắp nước).
