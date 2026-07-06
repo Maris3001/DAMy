@@ -1,0 +1,94 @@
+# Kế hoạch tạo dự án "Linh Vé Các"
+
+## Bối cảnh
+
+Đồ án tốt nghiệp: website bán vé xem phim trực tuyến tích hợp ưu đãi khách hàng thành viên. Dự án hoàn toàn mới, cần scaffold từ đầu và xây **toàn bộ đề tài** (cả yêu cầu trung bình lẫn khá).
+
+**Quyết định đã chốt:**
+- Phạm vi: toàn bộ đề tài (đặt vé + tích điểm + phân hạng + voucher + ưu đãi cá nhân hóa + chiến dịch khuyến mãi)
+- Frontend: Vue 3 + Vite + Pinia + Vue Router + axios + **Tailwind CSS**
+- Thanh toán: **VNPay sandbox** (thiết kế sau interface `PaymentService`, có `MockPaymentService` dự phòng qua property `payment.provider=vnpay|mock`)
+- Schema: **Flyway migration** (SQL Server), `ddl-auto=validate`
+
+**Môi trường đã kiểm tra:** Java 21 LTS, Node 26, npm 11, không có Maven global (dùng `.\mvnw.cmd`), SQL Server Express `localhost\SQLEXPRESS` đang chạy, có sqlcmd.
+
+**Cấu trúc:** monorepo `backend/` (Spring Boot 3.x, group `com.linhvecac`) + `frontend/` (Vite + Vue). Tiền VND lưu `BIGINT`. Text tiếng Việt dùng `NVARCHAR` + literal `N'...'`.
+
+## 8 Phase — mỗi phase kết thúc chạy được
+
+### P1 — Scaffold + kết nối DB + Flyway baseline ✅ HOÀN THÀNH
+- [x] Backend từ Spring Initializr (Boot **3.5.16**, tải zip): deps `web, data-jpa, security, validation, flyway, sqlserver, lombok`; đã thêm tay `jjwt-api/impl/jackson` (0.12.6); `flyway-sqlserver` có sẵn từ Initializr.
+- [x] Frontend: `npm create vite@latest frontend -- --template vue`, thêm `pinia vue-router axios tailwindcss @tailwindcss/vite`; proxy `/api → http://localhost:8080` trong `vite.config.js`.
+- [x] Tạo DB `linhvecac` trên SQLEXPRESS + SQL login `linhvecac_app` qua `backend/db/00_bootstrap.sql` (Mixed Mode đã bật sẵn). **Dev hiện dùng `sa` trong application-local**.
+- [x] `application.properties` (placeholder env) + `application-local.properties` (gitignored). JDBC dùng **port tĩnh 1433 trực tiếp** (`jdbc:sqlserver://localhost:1433;databaseName=linhvecac;encrypt=true;trustServerCertificate=true`) — KHÔNG dùng `instanceName` vì SQL Browser tắt (xem Rủi ro #1).
+- [x] `V1__init.sql` baseline (bảng `app_meta`); `GET /api/health` (kiểm DB thật); git init + .gitignore; `SecurityConfig` tạm `permitAll`.
+- **Kiểm tra:** ✅ backend boot + Flyway apply V1 (flyway_schema_history: `1/init/success`); `npm run dev` (5173) → `/api/health` qua proxy trả `{status:UP, db:UP, app:"Linh Vé Các"}` HTTP 200.
+
+### P2 — Auth + đăng ký thành viên
+- [ ] `V2__users.sql`, `V3__seed_admin.sql`. Spring Security + JWT filter, role USER/ADMIN, BCrypt.
+- [ ] API: `POST /api/auth/register`, `POST /api/auth/login`, `GET|PUT /api/users/me`.
+- [ ] FE: trang login/register, `authStore` (token trong localStorage), axios interceptor gắn Bearer, route guard.
+- **Kiểm tra:** đăng ký → đăng nhập → xem hồ sơ; 401 khi không token; admin seed đăng nhập được.
+
+### P3 — Catalog + admin CRUD
+- [ ] `V4__catalog.sql` (regions, cinema_chains, cinemas, rooms, seats, movies, showtimes, concessions) + `V5__seed_catalog.sql` (2 khu vực, 2 hãng, 3 rạp, lưới ghế, 6 phim, 1 tuần suất chiếu, 6 món bắp nước).
+- [ ] API public đọc catalog + API admin CRUD `/api/admin/...` (`hasRole('ADMIN')`), gồm `POST /api/admin/rooms/{id}/seats/generate` sinh lưới ghế.
+- [ ] FE: trang chủ "phim đang chiếu", chi tiết phim; khu admin với CrudTable + form cho phim/lịch chiếu/rạp/bắp nước.
+- **Kiểm tra:** admin tạo phim + suất chiếu → hiện ở trang public; non-admin bị 403.
+
+### P4 — Luồng đặt vé 6 bước + giữ ghế (lõi concurrency)
+- [ ] `V6__booking.sql`: bookings, **booking_seats** (guard chống trùng ghế), booking_concessions.
+- [ ] `booking_seats`: `UNIQUE(showtime_id, seat_id)`, `status HOLD|CONFIRMED`, `hold_expires_at`, cột `ticket_code` (kiêm luôn entity vé). Hold = 1 transaction: DELETE hold hết hạn → INSERT HOLD (TTL 10 phút); vi phạm unique → bắt `DataIntegrityViolationException` → 409 "Ghế đã có người giữ". Job 60s dọn HOLD hết hạn + chuyển booking quá `expires_at` sang EXPIRED.
+- [ ] API: `POST/DELETE /api/bookings/hold`, `GET /api/showtimes/{id}/seats` (AVAILABLE/HELD/BOOKED/MINE), `POST /api/bookings` (tạo PENDING_PAYMENT), `GET /api/bookings/quote`.
+- [ ] FE: wizard 6 bước `/dat-ve/khu-vuc → rap → suat-chieu → ghe → bap-nuoc → thanh-toan`, guard chuyển về bước chưa hoàn thành; `bookingStore` (Pinia, persist sessionStorage) + `SeatMap.vue` (poll ~10s) + `CountdownBadge.vue` đếm ngược hold.
+- **Kiểm tra:** 2 phiên trình duyệt tranh 1 ghế → phiên sau 409; 2 request hold song song → đúng 1 thành công; hold hết hạn → ghế nhả.
+
+### P5 — Thanh toán VNPay + vé
+- [ ] `V7__payments.sql`. Interface `PaymentService` → `VnPayPaymentService` / `MockPaymentService` (`@ConditionalOnProperty payment.provider`).
+- [ ] VNPay: build URL ký HMAC-SHA512 trên chuỗi **đã URL-encode** (gotcha kinh điển), `vnp_Amount = total × 100`, giờ Asia/Ho_Chi_Minh, `vnp_ExpireDate = booking.expires_at`. Return URL (`GET /api/payments/vnpay/return`) cho UX; IPN (`GET /api/payments/vnpay/ipn`) là nguồn chính thức với RspCode 00/01/02/04/97. Vì IPN không tới được localhost, return handler cũng finalize — idempotent nhờ state machine.
+- [ ] `BookingService.markPaid(code)` transactional, guard `UPDATE ... WHERE status='PENDING_PAYMENT'`: PENDING_PAYMENT→PAID, HOLD→CONFIRMED + sinh ticket_code, voucher→USED, tích điểm, xét hạng.
+- [ ] FE: nút thanh toán redirect VNPay; trang `/payment/result` hiện vé (mã vé dạng text/QR đơn giản).
+- **Kiểm tra:** mock flow chạy trọn; VNPay sandbox thẻ test NCB `9704198526191432198` thành công; hủy trên gateway → booking EXPIRED; gọi lại return URL không double-process.
+
+### P6 — Tích điểm + phân hạng
+- [ ] `V8__loyalty.sql`: point_transactions, tier_history; thêm `points_balance`, `lifetime_points`, `tier` vào users.
+- [ ] Quy tắc: **1 điểm / 10.000 ₫** (`floor(total/10000)`), tích trong cùng transaction markPaid. Hạng theo **lifetime_points** (SILVER 0+, GOLD ≥ 5.000, PLATINUM ≥ 15.000) — hàm thuần, không cần job hạ hạng, dễ bảo vệ trước hội đồng; đổi điểm không tụt hạng. Ngưỡng đặt trong `TierPolicy`.
+- [ ] API: `GET /api/loyalty/summary`, `GET /api/loyalty/points-history`. FE: tab điểm thưởng + `TierProgressBar.vue`.
+- **Kiểm tra:** thanh toán 120.000 ₫ → +12 điểm; user seed sát ngưỡng thanh toán → lên hạng, có dòng tier_history.
+
+### P7 — Voucher, chiến dịch KM, tự động áp dụng, ưu đãi cá nhân hóa
+- [ ] `V9__promotions.sql` (campaigns, vouchers, user_vouchers) + `V10__seed_promotions.sql`.
+- [ ] Voucher: PERCENT (cap `max_discount_amount`) / FIXED; ràng buộc `min_order_amount`, `valid_from/to`, `min_tier`, `points_cost` (đổi điểm), `quantity`.
+- [ ] **Auto-apply** `VoucherService.findBestVoucher(user, subtotal)`: lọc voucher AVAILABLE hợp lệ → tính discount từng cái → chọn max, tie-break voucher sắp hết hạn trước; user có thể override/bỏ. Booking EXPIRED/CANCELLED → voucher hoàn về AVAILABLE.
+- [ ] **OfferEngine rule-based** (cron 6h sáng + hook sau thanh toán, idempotent theo campaign/kỳ): sinh nhật (15%), thể loại/rạp yêu thích 90 ngày, win-back >60 ngày không mua (20%), quà lên hạng. Có `POST /api/admin/offers/run` để demo trực tiếp khi bảo vệ.
+- [ ] Admin: CRUD campaigns/vouchers, danh sách thành viên theo hạng.
+- **Kiểm tra:** 2 voucher hợp lệ → quote chọn cái giảm nhiều hơn; voucher dưới min_order bị bỏ qua; chạy offers 2 lần chỉ cấp 1 voucher sinh nhật.
+
+### P8 — Lịch sử, dashboard, hoàn thiện
+- [ ] Member: lịch sử giao dịch/điểm/voucher có filter. Admin dashboard: doanh thu theo ngày, top phim, phân bố hạng.
+- [ ] Polish: rà chữ tiếng Việt, empty/loading/error state, responsive; README hướng dẫn chạy; test cho `LoyaltyService`, `VoucherService` (chọn best voucher), seat-hold conflict.
+- **Kiểm tra:** số liệu dashboard khớp query tay trong SSMS; `.\mvnw.cmd test` xanh; `npm run build` sạch.
+
+## Schema chính (Flyway V1→V10, `backend/src/main/resources/db/migration/`)
+
+users · regions · cinema_chains · cinemas · rooms · seats (`UNIQUE(room_id,row_label,col_number)`, loại STANDARD/VIP/COUPLE) · movies · showtimes (`base_price`, index theo room/movie+starts_at) · concessions · bookings (code, status, subtotal/discount/total, `expires_at`, index `(status,expires_at)`) · **booking_seats** (`UNIQUE(showtime_id,seat_id)` — chốt chặn race condition) · booking_concessions · payments (vnp_txn_ref UNIQUE) · point_transactions (delta có dấu, EARN/REDEEM/ADJUST) · tier_history · campaigns · vouchers · user_vouchers.
+
+## Cấu trúc code
+
+**Backend** `com.linhvecac.{config, common, auth, user, catalog.{region,cinema,movie,showtime,concession}, booking, payment, loyalty, promotion, admin}` — mỗi module: Entity/Repository/Service/Controller/dto; entity dùng `GenerationType.IDENTITY`.
+
+**Frontend** `src/{api (http.js + wrapper theo module), stores/{auth,booking,catalog}.js, router, layouts/{Default,Admin}Layout.vue, pages, components}` — component chủ chốt: `SeatMap`, `BookingStepper`, `CountdownBadge`, `CheckoutSummary`, `VoucherCard`, `TierProgressBar`, admin `CrudTable`.
+
+## Rủi ro Windows + SQLEXPRESS (xử lý ở P1)
+
+1. ✅ ĐÃ XỬ LÝ (P1): SQLEXPRESS đã bật TCP/IP + cấu hình **port tĩnh 1433**, nhưng SQL Browser tắt → JDBC không phân giải được `instanceName` (timeout UDP 1434). Giải pháp đã dùng: JDBC nối thẳng `localhost:1433`, bỏ `instanceName`. (Nếu máy khác dùng dynamic port thì bật SQL Browser hoặc pin 1433.)
+2. mssql-jdbc ≥10 mặc định `encrypt=true` → phải thêm `trustServerCertificate=true`.
+3. SQLEXPRESS mặc định chỉ Windows auth → bật Mixed Mode, tạo SQL login `linhvecac_app`.
+4. Flyway 10 cần module `flyway-sqlserver` riêng; migration không dùng `GO`/`USE`.
+5. Text tiếng Việt: NVARCHAR + `N'...'`, file .sql lưu UTF-8, `spring.flyway.encoding=UTF-8`.
+6. Múi giờ: lưu DATETIME2 giờ VN nhất quán; `vnp_CreateDate` phải giờ VN.
+7. Port 8080 có thể bị chiếm → document `server.port`.
+
+## Kiểm tra tổng thể
+
+Sau mỗi phase chạy demo như mô tả. Kết thúc: luồng đầy đủ đăng ký → đặt vé 6 bước → VNPay sandbox → nhận vé + điểm → lên hạng → nhận ưu đãi → đặt vé lần 2 thấy voucher tự áp dụng → xem lịch sử. Cập nhật CLAUDE.md khi cấu trúc thực tế hình thành (P1) và bổ sung mục VNPay/loyalty khi hoàn thành P5–P7.

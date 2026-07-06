@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Design tokens "Linh Vé Các" — theo DESIGN.md §1.2 (Tailwind v4 @theme) */
+@theme {
+  /* Nền khu người dùng (dark) */
+  --color-surface-950: #0B0D12;
+  --color-surface-900: #12151D;
+  --color-surface-800: #1A1E29;
+  --color-surface-700: #252A38;
+
+  /* Màu nhấn chính — vàng đồng */
+  --color-brand-400: #E5C56B;
+  --color-brand-500: #D4AF37;
+  --color-brand-600: #B8942C;
+
+  /* Màu phụ — đỏ màn nhung */
+  --color-crimson-500: #C0392B;
+
+  /* Chữ trên nền tối */
+  --color-ink-100: #F2F0EB;
+  --color-ink-300: #C9C6BE;
+  --color-ink-500: #8B8878;
+
+  /* Ngữ nghĩa */
+  --color-success: #2E9E5B;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
+  --color-info: #2563EB;
+}
+
+body {
+  background-color: var(--color-surface-950);
+  color: var(--color-ink-300);
+  font-family: "Be Vietnam Pro", system-ui, sans-serif;
+}
