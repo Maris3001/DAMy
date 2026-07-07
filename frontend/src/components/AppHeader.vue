@@ -20,6 +20,13 @@ function logout() {
       <nav class="flex items-center gap-2">
         <template v-if="auth.isAuthenticated">
           <RouterLink
+            v-if="auth.isAdmin"
+            to="/admin"
+            class="rounded-lg px-3 py-2 text-sm text-brand-500 transition-colors duration-150 hover:text-brand-400"
+          >
+            Quản trị
+          </RouterLink>
+          <RouterLink
             to="/tai-khoan"
             class="rounded-lg px-3 py-2 text-sm text-ink-300 transition-colors duration-150 hover:text-ink-100"
           >

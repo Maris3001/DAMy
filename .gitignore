@@ -8,6 +8,9 @@
 **/target/
 *.class
 
+# Ảnh upload (poster phim, bắp nước) — không commit
+backend/uploads/
+
 # ===== Frontend (Node / Vite) =====
 **/node_modules/
 **/dist/

@@ -1,46 +1,88 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import axios from 'axios'
+// Trang chủ (P-01): hero phim nổi bật + "Phim đang chiếu" + "Sắp chiếu".
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { listMovies } from '../api/movies'
+import { getApiMessage } from '../api/http'
+import MovieCard from '../components/MovieCard.vue'
+import BaseButton from '../components/ui/BaseButton.vue'
+import LoadingState from '../components/ui/LoadingState.vue'
+import EmptyState from '../components/ui/EmptyState.vue'
+import ErrorState from '../components/ui/ErrorState.vue'
 
+const router = useRouter()
 const state = ref('loading') // loading | ok | error
-const health = ref(null)
 const errorMsg = ref('')
+const movies = ref([])
+
+const nowShowing = computed(() => movies.value.filter((m) => m.status === 'NOW_SHOWING'))
+const comingSoon = computed(() => movies.value.filter((m) => m.status === 'COMING_SOON'))
+const featured = computed(() => nowShowing.value[0] ?? null)
 
 onMounted(async () => {
   try {
-    const { data } = await axios.get('/api/health')
-    health.value = data
-    state.value = data.db === 'UP' ? 'ok' : 'error'
-    if (data.db !== 'UP') errorMsg.value = data.dbError || 'Không kết nối được cơ sở dữ liệu'
+    movies.value = await listMovies()
+    state.value = 'ok'
   } catch (e) {
+    errorMsg.value = getApiMessage(e, 'Không tải được danh sách phim')
     state.value = 'error'
-    errorMsg.value = e.message || 'Không gọi được API backend'
   }
 })
+
+function goDetail(id) {
+  router.push({ name: 'movie-detail', params: { id } })
+}
 </script>
 
 <template>
-  <main class="min-h-screen flex items-center justify-center px-4">
-    <div class="w-full max-w-md rounded-lg border border-white/5 bg-surface-800 p-6 text-center">
-      <h1 class="text-2xl text-brand-500 font-semibold">Linh Vé Các</h1>
-      <p class="mt-1 text-sm text-ink-500">Kiểm tra kết nối hệ thống (P1)</p>
-
-      <!-- Loading -->
-      <p v-if="state === 'loading'" class="mt-6 text-ink-300">Đang kiểm tra kết nối…</p>
-
-      <!-- OK -->
-      <div v-else-if="state === 'ok'" class="mt-6 space-y-1">
-        <p class="text-success text-lg">✓ Backend OK · DB OK</p>
-        <p class="text-ink-300">Ứng dụng: <span class="text-ink-100">{{ health.app }}</span></p>
-        <p class="text-sm text-ink-500">Thời gian máy chủ: {{ health.time }}</p>
+  <main class="pb-16">
+    <!-- Hero -->
+    <section v-if="featured" class="relative overflow-hidden border-b border-white/5">
+      <div class="absolute inset-0">
+        <img
+          v-if="featured.backdropUrl || featured.posterUrl"
+          :src="featured.backdropUrl || featured.posterUrl"
+          :alt="featured.title"
+          class="h-full w-full object-cover object-center opacity-40"
+        />
+        <div class="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/80 to-surface-950/30" />
       </div>
-
-      <!-- Error -->
-      <div v-else class="mt-6 space-y-1">
-        <p class="text-danger text-lg">✕ Kết nối thất bại</p>
-        <p class="text-sm text-ink-500">{{ errorMsg }}</p>
-        <p class="text-sm text-ink-500">Kiểm tra backend đã chạy ở cổng 8080 chưa.</p>
+      <div class="relative mx-auto max-w-6xl px-4 py-16 sm:py-24">
+        <p class="text-sm font-medium uppercase tracking-wide text-brand-500">Đang chiếu</p>
+        <h1 class="mt-2 max-w-2xl text-4xl font-semibold text-ink-100">{{ featured.title }}</h1>
+        <p class="mt-3 max-w-xl text-ink-300 line-clamp-3">{{ featured.description }}</p>
+        <div class="mt-6">
+          <BaseButton size="lg" @click="goDetail(featured.id)">Đặt vé ngay</BaseButton>
+        </div>
       </div>
+    </section>
+
+    <div class="mx-auto max-w-6xl px-4">
+      <LoadingState v-if="state === 'loading'" message="Đang tải phim…" />
+      <ErrorState v-else-if="state === 'error'" :message="errorMsg" class="mt-8" />
+
+      <template v-else>
+        <!-- Phim đang chiếu -->
+        <section class="py-12">
+          <h2 class="mb-6 text-2xl font-semibold text-ink-100">Phim đang chiếu</h2>
+          <EmptyState
+            v-if="nowShowing.length === 0"
+            title="Chưa có phim đang chiếu"
+            message="Vui lòng quay lại sau nhé."
+          />
+          <div v-else class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <MovieCard v-for="m in nowShowing" :key="m.id" :movie="m" mode="now" />
+          </div>
+        </section>
+
+        <!-- Sắp chiếu -->
+        <section v-if="comingSoon.length" class="py-4">
+          <h2 class="mb-6 text-2xl font-semibold text-ink-100">Sắp chiếu</h2>
+          <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <MovieCard v-for="m in comingSoon" :key="m.id" :movie="m" mode="coming" />
+          </div>
+        </section>
+      </template>
     </div>
   </main>
 </template>
