@@ -21,6 +21,16 @@ const routes = [
     component: () => import('../pages/MovieDetailPage.vue'),
   },
   {
+    path: '/the-loai',
+    name: 'genres',
+    component: () => import('../pages/GenresPage.vue'),
+  },
+  {
+    path: '/rap',
+    name: 'cinemas',
+    component: () => import('../pages/CinemasPage.vue'),
+  },
+  {
     path: '/tai-khoan',
     component: () => import('../layouts/AccountLayout.vue'),
     meta: { requiresAuth: true },

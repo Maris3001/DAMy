@@ -17,6 +17,31 @@ function logout() {
     <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
       <RouterLink to="/" class="text-lg font-semibold text-brand-500">Linh Vé Các</RouterLink>
 
+      <nav class="flex items-center gap-1">
+        <RouterLink
+          to="/"
+          class="rounded-lg px-3 py-2 text-sm text-ink-300 transition-colors duration-150 hover:text-ink-100"
+          active-class="text-ink-100"
+          exact-active-class="text-ink-100"
+        >
+          Phim
+        </RouterLink>
+        <RouterLink
+          to="/the-loai"
+          class="rounded-lg px-3 py-2 text-sm text-ink-300 transition-colors duration-150 hover:text-ink-100"
+          active-class="text-ink-100"
+        >
+          Thể loại
+        </RouterLink>
+        <RouterLink
+          to="/rap"
+          class="rounded-lg px-3 py-2 text-sm text-ink-300 transition-colors duration-150 hover:text-ink-100"
+          active-class="text-ink-100"
+        >
+          Rạp
+        </RouterLink>
+      </nav>
+
       <nav class="flex items-center gap-2">
         <template v-if="auth.isAuthenticated">
           <RouterLink
