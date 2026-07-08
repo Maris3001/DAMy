@@ -44,6 +44,10 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/api/health").permitAll()
+                        // Callback thanh toán do server VNPay / trình duyệt gọi, không mang JWT.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/payments/vnpay/return", "/api/payments/vnpay/ipn",
+                                "/api/payments/mock/pay").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/regions/**", "/api/cinemas/**", "/api/movies/**",
                                 "/api/concessions/**", "/api/files/**").permitAll()

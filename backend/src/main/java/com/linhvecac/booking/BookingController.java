@@ -1,6 +1,7 @@
 package com.linhvecac.booking;
 
 import com.linhvecac.booking.dto.BookingResponse;
+import com.linhvecac.booking.dto.BookingSummaryResponse;
 import com.linhvecac.booking.dto.CreateBookingRequest;
 import com.linhvecac.booking.dto.HoldRequest;
 import com.linhvecac.booking.dto.HoldResponse;
@@ -10,9 +11,11 @@ import com.linhvecac.user.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -30,18 +34,22 @@ public class BookingController {
 
     private final BookingService bookingService;
 
+    // Chỉ thành viên (USER) được thực hiện luồng mua vé; tài khoản ADMIN quản trị ở khu riêng.
     @PostMapping("/hold")
+    @PreAuthorize("hasRole('USER')")
     public HoldResponse hold(@AuthenticationPrincipal User user, @Valid @RequestBody HoldRequest request) {
         return bookingService.hold(user, request);
     }
 
     @DeleteMapping("/hold")
+    @PreAuthorize("hasRole('USER')")
     public HoldResponse release(@AuthenticationPrincipal User user, @Valid @RequestBody HoldRequest request) {
         return bookingService.release(user, request);
     }
 
     /** Báo giá trước khi tạo đơn; concessions dạng "id:soLuong,id:soLuong". */
     @GetMapping("/quote")
+    @PreAuthorize("hasRole('USER')")
     public QuoteResponse quote(@AuthenticationPrincipal User user,
                                @RequestParam Long showtimeId,
                                @RequestParam(required = false) String concessions) {
@@ -50,9 +58,22 @@ public class BookingController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('USER')")
     public BookingResponse create(@AuthenticationPrincipal User user,
                                   @Valid @RequestBody CreateBookingRequest request) {
         return bookingService.create(user, request);
+    }
+
+    /** Danh sách đơn của user hiện tại (mới nhất trước) — trang "Vé của tôi". */
+    @GetMapping
+    public List<BookingSummaryResponse> listMine(@AuthenticationPrincipal User user) {
+        return bookingService.listMine(user);
+    }
+
+    /** Chi tiết đơn (kèm vé nếu đã thanh toán) — chỉ chủ đơn xem được, khác chủ trả 404. */
+    @GetMapping("/{code}")
+    public BookingResponse getByCode(@AuthenticationPrincipal User user, @PathVariable String code) {
+        return bookingService.getByCode(user, code);
     }
 
     private Map<Long, Integer> parseConcessions(String raw) {

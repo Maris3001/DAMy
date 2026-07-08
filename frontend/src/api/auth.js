@@ -15,3 +15,8 @@ export function getMe() {
 export function updateMe(payload) {
   return http.put('/users/me', payload).then((res) => res.data)
 }
+
+/** Đổi mật khẩu; payload: { currentPassword, newPassword }. Trả 204 (không body). */
+export function changePassword(payload) {
+  return http.put('/users/me/password', payload).then((res) => res.data)
+}

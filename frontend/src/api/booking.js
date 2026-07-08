@@ -30,3 +30,13 @@ export function getQuote(showtimeId, concessions = {}) {
 export function createBooking(showtimeId, concessions = []) {
   return http.post('/bookings', { showtimeId, concessions }).then((res) => res.data)
 }
+
+/** Chi tiết đơn theo mã (kèm vé nếu đã thanh toán) — chỉ chủ đơn xem được. */
+export function getBooking(code) {
+  return http.get(`/bookings/${code}`).then((res) => res.data)
+}
+
+/** Danh sách đơn của user hiện tại (mới nhất trước) — trang "Vé của tôi". */
+export function listMyBookings() {
+  return http.get('/bookings').then((res) => res.data)
+}

@@ -1,9 +1,10 @@
 <script setup>
-// Bước 6 (P-06, phạm vi P4): báo giá server-side → "Xác nhận đặt vé" tạo đơn PENDING_PAYMENT.
-// Thanh toán VNPay hoàn thiện ở P5 — nút để disabled kèm ghi chú.
+// Bước 6 (P-06): báo giá server-side → "Xác nhận đặt vé" tạo đơn PENDING_PAYMENT →
+// "Thanh toán qua VNPay" khởi tạo payment và redirect sang cổng (P5).
 import { inject, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createBooking, getQuote } from '../../api/booking'
+import { createPayment } from '../../api/payment'
 import { getApiMessage } from '../../api/http'
 import { useBookingStore } from '../../stores/booking'
 import { formatDate, formatTime, formatVnd } from '../../utils/format'
@@ -20,6 +21,7 @@ const state = ref('loading') // loading | ok | error
 const errorMsg = ref('')
 const quote = ref(null)
 const creating = ref(false)
+const paying = ref(false)
 
 async function loadQuote() {
   if (booking.booking) {
@@ -57,6 +59,25 @@ async function confirm() {
     }
   } finally {
     creating.value = false
+  }
+}
+
+async function pay() {
+  paying.value = true
+  try {
+    const { payUrl } = await createPayment(booking.booking.code)
+    // Điều hướng cả trang sang cổng thanh toán; cổng sẽ redirect về /thanh-toan/ket-qua.
+    window.location.href = payUrl
+  } catch (e) {
+    paying.value = false
+    if (e.response?.status === 409) {
+      // Đơn hết hạn thanh toán → dọn và về trang chủ
+      showToast(getApiMessage(e, 'Đơn đã hết hạn thanh toán, vui lòng đặt lại.'))
+      booking.reset()
+      router.push('/')
+    } else {
+      showToast(getApiMessage(e, 'Không mở được cổng thanh toán, vui lòng thử lại.'))
+    }
   }
 }
 
@@ -118,9 +139,9 @@ onMounted(loadQuote)
         </dl>
 
         <div class="mt-6 space-y-3">
-          <BaseButton size="lg" block disabled>🔒 Thanh toán qua VNPay</BaseButton>
-          <p class="text-sm text-ink-500">Cổng thanh toán sẽ có ở giai đoạn phát triển tiếp theo.</p>
-          <BaseButton variant="ghost" block @click="startOver">Đặt vé mới</BaseButton>
+          <BaseButton size="lg" block :loading="paying" @click="pay">Thanh toán qua VNPay</BaseButton>
+          <p class="text-sm text-ink-500">Bạn sẽ được chuyển sang cổng thanh toán an toàn.</p>
+          <BaseButton variant="ghost" block :disabled="paying" @click="startOver">Đặt vé mới</BaseButton>
         </div>
       </div>
     </div>

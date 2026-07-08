@@ -22,15 +22,39 @@ const routes = [
   },
   {
     path: '/tai-khoan',
-    name: 'profile',
-    component: () => import('../pages/account/ProfilePage.vue'),
+    component: () => import('../layouts/AccountLayout.vue'),
     meta: { requiresAuth: true },
+    children: [
+      { path: '', redirect: { name: 'account-profile' } },
+      {
+        path: 'ho-so',
+        name: 'account-profile',
+        component: () => import('../pages/account/ProfilePage.vue'),
+      },
+      {
+        path: 've-cua-toi',
+        name: 'account-bookings',
+        component: () => import('../pages/account/MyBookingsPage.vue'),
+      },
+      {
+        path: 'doi-mat-khau',
+        name: 'account-password',
+        component: () => import('../pages/account/ChangePasswordPage.vue'),
+      },
+    ],
+  },
+  {
+    // Đích redirect từ cổng thanh toán (VNPay/mock) — ngoài wizard /dat-ve
+    path: '/thanh-toan/ket-qua',
+    name: 'payment-result',
+    component: () => import('../pages/PaymentResultPage.vue'),
+    meta: { requiresAuth: true, userOnly: true },
   },
   // ===== Wizard đặt vé 6 bước (P4) =====
   {
     path: '/dat-ve',
     component: () => import('../pages/booking/BookingLayout.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, userOnly: true },
     children: [
       { path: '', redirect: { name: 'booking-region' } },
       {
@@ -145,6 +169,11 @@ router.beforeEach(async (to) => {
   }
   if (to.meta.guestOnly && auth.isAuthenticated) {
     return { path: '/' }
+  }
+
+  // Luồng đặt vé/thanh toán chỉ dành cho thành viên; admin có khu quản trị riêng.
+  if (to.meta.userOnly && auth.isAdmin) {
+    return { path: '/admin' }
   }
 
   // Wizard đặt vé: chặn nhảy cóc quá bước đầu tiên chưa hoàn thành

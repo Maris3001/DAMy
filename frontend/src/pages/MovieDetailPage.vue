@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getMovie, getMovieShowtimes } from '../api/movies'
 import { listRegions } from '../api/catalog'
 import { getApiMessage } from '../api/http'
+import { useAuthStore } from '../stores/auth'
 import { useBookingStore } from '../stores/booking'
 import { formatDayTab, formatTime, toDateParam } from '../utils/format'
 import BaseBadge from '../components/ui/BaseBadge.vue'
@@ -18,6 +19,8 @@ import ErrorState from '../components/ui/ErrorState.vue'
 const route = useRoute()
 const router = useRouter()
 const bookingStore = useBookingStore()
+const auth = useAuthStore()
+const isAdmin = computed(() => auth.isAdmin)
 const movieId = computed(() => route.params.id)
 
 const state = ref('loading') // loading | ok | error
@@ -72,6 +75,7 @@ async function loadMovie() {
 
 /** Điền sẵn khu vực/rạp/suất vào bookingStore rồi vào thẳng bước chọn ghế. */
 async function pickShowtime(cinema, slot) {
+  if (isAdmin.value) return // Tài khoản quản trị không đặt vé
   let regionName = ''
   try {
     const regions = await listRegions()
@@ -111,9 +115,23 @@ onMounted(loadMovie)
     <ErrorState v-else-if="state === 'error'" :message="errorMsg" />
 
     <template v-else>
-      <!-- Thông tin phim -->
-      <section class="grid gap-6 md:grid-cols-[280px_1fr]">
-        <div class="overflow-hidden rounded-lg border border-white/5 bg-surface-800">
+      <!-- Thông tin phim (ảnh nền mờ phía sau) -->
+      <section class="relative">
+        <div
+          v-if="movie.backdropUrl || movie.posterUrl"
+          class="pointer-events-none absolute inset-x-0 -top-8 h-64 overflow-hidden rounded-b-2xl"
+          aria-hidden="true"
+        >
+          <img
+            :src="movie.backdropUrl || movie.posterUrl"
+            :alt="movie.title"
+            class="h-full w-full object-cover object-center opacity-25"
+          />
+          <div class="absolute inset-0 bg-gradient-to-b from-surface-950/30 via-surface-950/70 to-surface-950" />
+        </div>
+
+        <div class="relative grid gap-6 md:grid-cols-[280px_1fr]">
+          <div class="overflow-hidden rounded-lg border border-white/5 bg-surface-800">
           <div class="aspect-[2/3] bg-surface-900">
             <img
               v-if="movie.posterUrl"
@@ -142,12 +160,20 @@ onMounted(loadMovie)
               Xem trailer
             </BaseButton>
           </div>
+          </div>
         </div>
       </section>
 
       <!-- Chọn suất chiếu -->
       <section class="mt-10">
         <h2 class="mb-4 text-2xl font-semibold text-ink-100">Lịch chiếu</h2>
+
+        <p
+          v-if="isAdmin"
+          class="mb-4 rounded-md border border-warning/40 bg-warning/10 px-3 py-2.5 text-sm text-ink-100"
+        >
+          Bạn đang đăng nhập bằng tài khoản quản trị nên không thể đặt vé.
+        </p>
 
         <!-- Tab 7 ngày -->
         <div class="flex gap-2 overflow-x-auto pb-2">
@@ -192,7 +218,8 @@ onMounted(loadMovie)
                   v-for="s in c.slots"
                   :key="s.id"
                   type="button"
-                  class="rounded-md border border-surface-700 px-4 py-2 text-sm text-ink-100 transition-colors duration-150 hover:border-brand-500 hover:text-brand-500"
+                  :disabled="isAdmin"
+                  class="rounded-md border border-surface-700 px-4 py-2 text-sm text-ink-100 transition-colors duration-150 enabled:hover:border-brand-500 enabled:hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
                   @click="pickShowtime(c, s)"
                 >
                   {{ formatTime(s.startsAt) }}

@@ -1,6 +1,7 @@
 package com.linhvecac.booking;
 
 import com.linhvecac.booking.dto.BookingResponse;
+import com.linhvecac.booking.dto.BookingSummaryResponse;
 import com.linhvecac.booking.dto.ConcessionLine;
 import com.linhvecac.booking.dto.CreateBookingRequest;
 import com.linhvecac.booking.dto.HeldSeat;
@@ -233,6 +234,50 @@ public class BookingService {
         return BookingResponse.from(booking, holds, items);
     }
 
+    /**
+     * Chốt đơn đã thanh toán (gọi từ payment callback P5) — idempotent nhờ guard-update:
+     * PENDING_PAYMENT → PAID, ghế HOLD → CONFIRMED + sinh ticket_code (kiêm vé).
+     * Trả false khi đơn đã PAID (callback gọi lại) hoặc đã EXPIRED — không xử lý gì thêm.
+     */
+    @Transactional
+    public boolean markPaid(String code) {
+        // Guard-update là @Modifying(clearAutomatically) → chạy TRƯỚC mọi lần load entity.
+        if (bookingRepository.markPaidIfPending(code) == 0) {
+            return false;
+        }
+        Booking booking = bookingRepository.findByCode(code)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn"));
+        List<BookingSeat> seats = bookingSeatRepository.findByBookingId(booking.getId());
+        for (BookingSeat seat : seats) {
+            seat.setStatus(BookingSeatStatus.CONFIRMED);
+            seat.setHoldExpiresAt(null);
+            seat.setTicketCode(generateTicketCode());
+        }
+        bookingSeatRepository.saveAll(seats);
+        // TODO(P6): cộng điểm + xét hạng thành viên tại đây (cùng transaction với markPaid).
+        // TODO(P7): voucher đã áp dụng cho đơn → chuyển USED tại đây.
+        return true;
+    }
+
+    /** Danh sách đơn của user (mới nhất trước) cho trang "Vé của tôi". */
+    @Transactional(readOnly = true)
+    public List<BookingSummaryResponse> listMine(User user) {
+        return bookingRepository.findMineWithDetails(user.getId()).stream()
+                .map(b -> BookingSummaryResponse.from(b, (int) bookingSeatRepository.countByBookingId(b.getId())))
+                .toList();
+    }
+
+    /** Chi tiết đơn theo mã — owner-guard: đơn của người khác trả 404 (không lộ mã đơn tồn tại). */
+    @Transactional(readOnly = true)
+    public BookingResponse getByCode(User user, String code) {
+        Booking booking = bookingRepository.findByCode(code)
+                .filter(b -> b.getUser().getId().equals(user.getId()))
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn"));
+        return BookingResponse.from(booking,
+                bookingSeatRepository.findByBookingId(booking.getId()),
+                bookingConcessionRepository.findByBookingId(booking.getId()));
+    }
+
     /** Job 60s: đơn quá hạn → EXPIRED trước, rồi xóa hold hết hạn (nhả ghế, kể cả ghế của đơn vừa hết hạn). */
     @Transactional
     public void cleanupExpired() {
@@ -296,6 +341,19 @@ public class BookingService {
             }
             code = sb.toString();
         } while (bookingRepository.existsByCode(code));
+        return code;
+    }
+
+    /** Mã vé "VE" + 8 ký tự — filtered unique index ux_booking_seats_ticket là chốt cuối ở DB. */
+    private String generateTicketCode() {
+        String code;
+        do {
+            StringBuilder sb = new StringBuilder("VE");
+            for (int i = 0; i < 8; i++) {
+                sb.append(CODE_ALPHABET.charAt(RANDOM.nextInt(CODE_ALPHABET.length())));
+            }
+            code = sb.toString();
+        } while (bookingSeatRepository.existsByTicketCode(code));
         return code;
     }
 }

@@ -10,6 +10,12 @@ import java.util.List;
 
 public interface BookingSeatRepository extends JpaRepository<BookingSeat, Long> {
 
+    List<BookingSeat> findByBookingId(Long bookingId);
+
+    long countByBookingId(Long bookingId);
+
+    boolean existsByTicketCode(String ticketCode);
+
     /** Các row còn hiệu lực của suất (đã bán, hoặc hold chưa hết hạn) — để vẽ sơ đồ ghế. */
     @Query("""
             SELECT bs FROM BookingSeat bs

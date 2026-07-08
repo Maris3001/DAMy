@@ -3,6 +3,7 @@ package com.linhvecac.common;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -27,6 +28,16 @@ public class GlobalExceptionHandler {
             errors.putIfAbsent(fieldError.getField(), fieldError.getDefaultMessage());
         }
         return ResponseEntity.badRequest().body(new ErrorResponse("Dữ liệu không hợp lệ", errors));
+    }
+
+    /**
+     * @PreAuthorize ném AccessDeniedException trong lúc gọi controller (sau filter chain) nên
+     * accessDeniedHandler của Security không bắt được — xử lý ở đây để trả 403 thay vì 500.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ErrorResponse.of("Bạn không có quyền thực hiện thao tác này"));
     }
 
     @ExceptionHandler(Exception.class)

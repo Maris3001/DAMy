@@ -260,6 +260,64 @@ class BookingServiceTest {
     }
 
     @Test
+    void markPaid_lanDau_chuyenPaidVaSinhMaVe() {
+        Showtime s = showtimeOpen();
+        User u = user();
+        Booking booking = new Booking();
+        booking.setId(50L);
+        booking.setCode("LVCTEST1234");
+        booking.setUser(u);
+        booking.setShowtime(s);
+        booking.setStatus(BookingStatus.PENDING_PAYMENT);
+        LocalDateTime holdExpiry = LocalDateTime.now().plusMinutes(5);
+        List<BookingSeat> seats = List.of(
+                holdOf(u, s, seat(1L, "A", 1, SeatType.STANDARD, s.getRoom()), holdExpiry),
+                holdOf(u, s, seat(2L, "F", 1, SeatType.VIP, s.getRoom()), holdExpiry));
+        when(bookingRepository.markPaidIfPending("LVCTEST1234")).thenReturn(1);
+        when(bookingRepository.findByCode("LVCTEST1234")).thenReturn(Optional.of(booking));
+        when(bookingSeatRepository.findByBookingId(50L)).thenReturn(seats);
+        when(bookingSeatRepository.existsByTicketCode(any())).thenReturn(false);
+
+        boolean result = bookingService.markPaid("LVCTEST1234");
+
+        assertThat(result).isTrue();
+        for (BookingSeat bs : seats) {
+            assertThat(bs.getStatus()).isEqualTo(BookingSeatStatus.CONFIRMED);
+            assertThat(bs.getHoldExpiresAt()).isNull();
+            assertThat(bs.getTicketCode()).startsWith("VE").hasSize(10);
+        }
+        // Mỗi ghế một mã vé riêng
+        assertThat(seats.get(0).getTicketCode()).isNotEqualTo(seats.get(1).getTicketCode());
+        verify(bookingSeatRepository).saveAll(seats);
+    }
+
+    @Test
+    void markPaid_goiLaiLan2_traFalseKhongXuLyGi() {
+        // Guard-update trả 0 khi đơn đã PAID (callback gọi lại) hoặc đã EXPIRED
+        when(bookingRepository.markPaidIfPending("LVCTEST1234")).thenReturn(0);
+
+        assertThat(bookingService.markPaid("LVCTEST1234")).isFalse();
+
+        verify(bookingRepository, never()).findByCode(any());
+        verify(bookingSeatRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void getByCode_donCuaNguoiKhac_nem404() {
+        Booking booking = new Booking();
+        booking.setId(50L);
+        booking.setCode("LVCTEST1234");
+        User owner = new User();
+        owner.setId(99L);
+        booking.setUser(owner);
+        when(bookingRepository.findByCode("LVCTEST1234")).thenReturn(Optional.of(booking));
+
+        assertThatThrownBy(() -> bookingService.getByCode(user(), "LVCTEST1234"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
     void cleanupExpired_chuyenDonHetHanTruocRoiMoiXoaHold() {
         bookingService.cleanupExpired();
 

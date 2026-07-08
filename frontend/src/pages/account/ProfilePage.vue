@@ -47,12 +47,10 @@ async function save() {
 </script>
 
 <template>
-  <main class="mx-auto max-w-6xl px-4 py-12">
-    <div class="mx-auto w-full max-w-md">
-      <h1 class="text-2xl font-semibold text-ink-100">Hồ sơ của tôi</h1>
-      <p class="mt-1 text-sm text-ink-500">Cập nhật thông tin để nhận ưu đãi phù hợp với bạn</p>
+  <div class="w-full max-w-md">
+    <p class="text-sm text-ink-500">Cập nhật thông tin để nhận ưu đãi phù hợp với bạn</p>
 
-      <form class="mt-6 space-y-4 rounded-lg border border-white/5 bg-surface-800 p-6" novalidate @submit.prevent="save">
+    <form class="mt-4 space-y-4 rounded-lg border border-white/5 bg-surface-800 p-6" novalidate @submit.prevent="save">
         <ErrorState v-if="apiError" :message="apiError" />
         <p v-if="saved" class="rounded-md border border-success/40 bg-success/10 px-3 py-2.5 text-sm text-ink-100">
           ✓ Đã lưu thay đổi
@@ -73,6 +71,5 @@ async function save() {
           <BaseButton type="submit" :loading="loading">Lưu thay đổi</BaseButton>
         </div>
       </form>
-    </div>
-  </main>
+  </div>
 </template>

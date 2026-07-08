@@ -43,21 +43,21 @@
 - [x] FE: wizard 6 bước `/dat-ve/khu-vuc → rap → suat-chieu → ghe → bap-nuoc → thanh-toan` (nested routes + `BookingLayout`), guard `meta.step` chuyển về `firstIncompleteStep`; `bookingStore` (Pinia options, persist sessionStorage `lvc_booking` tự viết) + `SeatMap.vue` (poll 10s, max 8 ghế, toast khi 409) + `CountdownBadge.vue` + `BookingStepper.vue`; MovieDetailPage bấm suất → điền sẵn bước 1–3, vào thẳng bước ghế. Bước 6 (P4) dừng ở tạo đơn + badge "Chờ thanh toán", nút VNPay disabled chờ P5.
 - **Kiểm tra:** ✅ 20 unit test BE xanh (hold 409/max 8/suất đóng/TTL kế thừa, create snapshot tiền, cleanup đúng thứ tự); 12 case API PASS (kể cả 2 hold song song ×5 vòng → đúng 1 thành công 1 nhận 409); job dọn: hold quá hạn nhả ghế + đơn quá hạn → EXPIRED (backdate DB, chờ job 60s); 10 bước E2E Playwright PASS (deep entry từ chi tiết phim, giữ ghế + countdown, F5 giữ state, nhảy cóc bị đẩy về bước 1, đi trọn wizard, user B thấy ghế bị giữ disabled); `npm run build` sạch.
 
-### P5 — Thanh toán VNPay + vé
-- [ ] `V7__payments.sql`. Interface `PaymentService` → `VnPayPaymentService` / `MockPaymentService` (`@ConditionalOnProperty payment.provider`).
-- [ ] VNPay: build URL ký HMAC-SHA512 trên chuỗi **đã URL-encode** (gotcha kinh điển), `vnp_Amount = total × 100`, giờ Asia/Ho_Chi_Minh, `vnp_ExpireDate = booking.expires_at`. Return URL (`GET /api/payments/vnpay/return`) cho UX; IPN (`GET /api/payments/vnpay/ipn`) là nguồn chính thức với RspCode 00/01/02/04/97. Vì IPN không tới được localhost, return handler cũng finalize — idempotent nhờ state machine.
-- [ ] `BookingService.markPaid(code)` transactional, guard `UPDATE ... WHERE status='PENDING_PAYMENT'`: PENDING_PAYMENT→PAID, HOLD→CONFIRMED + sinh ticket_code, voucher→USED, tích điểm, xét hạng.
-- [ ] FE: nút thanh toán redirect VNPay; trang `/payment/result` hiện vé (mã vé dạng text/QR đơn giản).
-- **Kiểm tra:** mock flow chạy trọn; VNPay sandbox thẻ test NCB `9704198526191432198` thành công; hủy trên gateway → booking EXPIRED; gọi lại return URL không double-process.
+### P5 — Thanh toán VNPay + vé ✅ HOÀN THÀNH
+- [x] `V7__payments.sql` (payments: `txn_ref UNIQUE` = code+'-'+attempt, provider VNPAY/MOCK, status PENDING/SUCCESS/FAILED, các cột vnp_*). Slice `com.linhvecac.payment`: `PaymentService` (interface) → `VnPayPaymentService` / `MockPaymentService` chọn bằng `@ConditionalOnProperty payment.provider` (mặc định mock), `AbstractPaymentService` gom validate + tạo Payment; `PaymentProcessor` finalize dùng chung.
+- [x] VNPay: `VnPaySigner` ký HMAC-SHA512 trên chuỗi **đã URL-encode** (US-ASCII, space→'+'), `vnp_Amount = total × 100`, giờ Asia/Ho_Chi_Minh, `vnp_ExpireDate = booking.expires_at`. Return URL (`GET /api/payments/vnpay/return` → 302 về FE) + IPN (`GET /api/payments/vnpay/ipn` → RspCode 00/01/02/04/97), cả hai qua `PaymentProcessor` nên idempotent. Mock: cổng giả lập tự render trang chọn Thành công/Hủy rồi finalize + redirect y hệt luồng thật.
+- [x] `BookingService.markPaid(code)` transactional, guard-update `markPaidIfPending` (`WHERE status='PENDING_PAYMENT'`): PENDING_PAYMENT→PAID, HOLD→CONFIRMED + sinh `ticket_code` ("VE"+8). Hook TODO(P6) tích điểm/hạng, TODO(P7) voucher→USED. Hủy trên gateway → payment FAILED, đơn giữ PENDING để retry (attempt mới), job 60s expire nếu bỏ.
+- [x] FE: nút "Thanh toán qua VNPay" redirect cổng; trang `/thanh-toan/ket-qua` (`PaymentResultPage`) hiện vé (mã text + QR qua `TicketQr.vue`, dep `qrcode`), nhánh success/failed(retry)/invalid; `api/payment.js`.
+- **Kiểm tra:** ✅ 28 unit test BE xanh (`VnPaySignerTest` build/verify/tamper/encode; `PaymentProcessorTest` success/already-done/amount-mismatch/cancel/mock/not-found; `BookingServiceTest` markPaid idempotent + getByCode 404). API flow PASS: hold→booking→payment→mock success→PAID+sinh mã vé; fail→giữ PENDING; retry→txnRef `-2`; gọi lại success→idempotent giữ nguyên mã vé; GET đơn không tồn tại→404. E2E Playwright PASS: qua cổng mock (proxy Vite→backend→302) landing `/thanh-toan/ket-qua?status=success`, 2 vé + 2 QR render, đơn PAID. `mvnw test` xanh, `npm run build` sạch. **Gotcha:** VS Code Java extension biên dịch đè `target/classes` mất cờ `-parameters` → 500 khi resolve `@PathVariable`; fix bằng `mvnw clean compile` trước khi `spring-boot:run`. VNPay sandbox thật (thẻ NCB `9704198526191432198`) chờ user đổi `PAYMENT_PROVIDER=vnpay` (credentials đã có sẵn trong application-local).
 
 ### P6 — Tích điểm + phân hạng
-- [ ] `V8__loyalty.sql`: point_transactions, tier_history; thêm `points_balance`, `lifetime_points`, `tier` vào users.
+- [ ] `V9__loyalty.sql`: point_transactions, tier_history; thêm `points_balance`, `lifetime_points`, `tier` vào users. (V8 đã dùng cho ảnh poster/backdrop phim.)
 - [ ] Quy tắc: **1 điểm / 10.000 ₫** (`floor(total/10000)`), tích trong cùng transaction markPaid. Hạng theo **lifetime_points** (SILVER 0+, GOLD ≥ 5.000, PLATINUM ≥ 15.000) — hàm thuần, không cần job hạ hạng, dễ bảo vệ trước hội đồng; đổi điểm không tụt hạng. Ngưỡng đặt trong `TierPolicy`.
 - [ ] API: `GET /api/loyalty/summary`, `GET /api/loyalty/points-history`. FE: tab điểm thưởng + `TierProgressBar.vue`.
 - **Kiểm tra:** thanh toán 120.000 ₫ → +12 điểm; user seed sát ngưỡng thanh toán → lên hạng, có dòng tier_history.
 
 ### P7 — Voucher, chiến dịch KM, tự động áp dụng, ưu đãi cá nhân hóa
-- [ ] `V9__promotions.sql` (campaigns, vouchers, user_vouchers) + `V10__seed_promotions.sql`.
+- [ ] `V10__promotions.sql` (campaigns, vouchers, user_vouchers) + `V11__seed_promotions.sql`.
 - [ ] Voucher: PERCENT (cap `max_discount_amount`) / FIXED; ràng buộc `min_order_amount`, `valid_from/to`, `min_tier`, `points_cost` (đổi điểm), `quantity`.
 - [ ] **Auto-apply** `VoucherService.findBestVoucher(user, subtotal)`: lọc voucher AVAILABLE hợp lệ → tính discount từng cái → chọn max, tie-break voucher sắp hết hạn trước; user có thể override/bỏ. Booking EXPIRED/CANCELLED → voucher hoàn về AVAILABLE.
 - [ ] **OfferEngine rule-based** (cron 6h sáng + hook sau thanh toán, idempotent theo campaign/kỳ): sinh nhật (15%), thể loại/rạp yêu thích 90 ngày, win-back >60 ngày không mua (20%), quà lên hạng. Có `POST /api/admin/offers/run` để demo trực tiếp khi bảo vệ.
@@ -69,7 +69,7 @@
 - [ ] Polish: rà chữ tiếng Việt, empty/loading/error state, responsive; README hướng dẫn chạy; test cho `LoyaltyService`, `VoucherService` (chọn best voucher), seat-hold conflict.
 - **Kiểm tra:** số liệu dashboard khớp query tay trong SSMS; `.\mvnw.cmd test` xanh; `npm run build` sạch.
 
-## Schema chính (Flyway V1→V10, `backend/src/main/resources/db/migration/`)
+## Schema chính (Flyway V1→V11, `backend/src/main/resources/db/migration/`; V8 = ảnh poster/backdrop phim)
 
 users · regions · cinema_chains · cinemas · rooms · seats (`UNIQUE(room_id,row_label,col_number)`, loại STANDARD/VIP/COUPLE) · movies · showtimes (`base_price`, index theo room/movie+starts_at) · concessions · bookings (code, status, subtotal/discount/total, `expires_at`, index `(status,expires_at)`) · **booking_seats** (`UNIQUE(showtime_id,seat_id)` — chốt chặn race condition) · booking_concessions · payments (vnp_txn_ref UNIQUE) · point_transactions (delta có dấu, EARN/REDEEM/ADJUST) · tier_history · campaigns · vouchers · user_vouchers.
 

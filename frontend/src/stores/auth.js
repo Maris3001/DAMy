@@ -52,6 +52,10 @@ export const useAuthStore = defineStore('auth', {
       this.user = await authApi.updateMe(payload)
     },
 
+    async changePassword(payload) {
+      await authApi.changePassword(payload)
+    },
+
     logout() {
       this.clearSession()
     },
