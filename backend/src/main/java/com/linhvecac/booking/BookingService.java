@@ -17,6 +17,7 @@ import com.linhvecac.catalog.showtime.Showtime;
 import com.linhvecac.catalog.showtime.ShowtimeRepository;
 import com.linhvecac.catalog.showtime.ShowtimeStatus;
 import com.linhvecac.common.ApiException;
+import com.linhvecac.loyalty.LoyaltyService;
 import com.linhvecac.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -52,6 +53,7 @@ public class BookingService {
     private final ShowtimeRepository showtimeRepository;
     private final SeatRepository seatRepository;
     private final ConcessionRepository concessionRepository;
+    private final LoyaltyService loyaltyService;
 
     /**
      * Giữ thêm ghế: dọn hold hết hạn của các ghế xin giữ rồi INSERT — UNIQUE(showtime_id, seat_id)
@@ -254,7 +256,8 @@ public class BookingService {
             seat.setTicketCode(generateTicketCode());
         }
         bookingSeatRepository.saveAll(seats);
-        // TODO(P6): cộng điểm + xét hạng thành viên tại đây (cùng transaction với markPaid).
+        // Tích điểm + xét hạng trong cùng transaction — guard-update ở trên đảm bảo chỉ chạy 1 lần/đơn.
+        loyaltyService.awardForBooking(booking.getUser(), booking.getId(), booking.getTotal());
         // TODO(P7): voucher đã áp dụng cho đơn → chuyển USED tại đây.
         return true;
     }

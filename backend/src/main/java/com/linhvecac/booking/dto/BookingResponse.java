@@ -6,6 +6,7 @@ import com.linhvecac.booking.BookingSeat;
 import com.linhvecac.booking.BookingStatus;
 import com.linhvecac.catalog.cinema.Room;
 import com.linhvecac.catalog.showtime.Showtime;
+import com.linhvecac.loyalty.LoyaltyService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,11 +27,14 @@ public record BookingResponse(
         long subtotal,
         long discount,
         long total,
+        long earnedPoints,
         LocalDateTime expiresAt) {
 
     public static BookingResponse from(Booking b, List<BookingSeat> seats, List<BookingConcession> concessions) {
         Showtime showtime = b.getShowtime();
         Room room = showtime.getRoom();
+        // Điểm đã tích cho đơn — chỉ có khi đã thanh toán; dùng chung công thức với LoyaltyService.
+        long earnedPoints = b.getStatus() == BookingStatus.PAID ? LoyaltyService.pointsFor(b.getTotal()) : 0;
         return new BookingResponse(
                 b.getId(),
                 b.getCode(),
@@ -53,6 +57,7 @@ public record BookingResponse(
                 b.getSubtotal(),
                 b.getDiscount(),
                 b.getTotal(),
+                earnedPoints,
                 b.getExpiresAt());
     }
 }

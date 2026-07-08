@@ -1,6 +1,7 @@
 package com.linhvecac.user.dto;
 
 import com.linhvecac.user.Role;
+import com.linhvecac.user.Tier;
 import com.linhvecac.user.User;
 
 import java.time.LocalDate;
@@ -11,7 +12,10 @@ public record UserResponse(
         String fullName,
         String phone,
         LocalDate birthDate,
-        Role role) {
+        Role role,
+        long pointsBalance,
+        long lifetimePoints,
+        Tier tier) {
 
     public static UserResponse from(User user) {
         return new UserResponse(
@@ -20,6 +24,9 @@ public record UserResponse(
                 user.getFullName(),
                 user.getPhone(),
                 user.getBirthDate(),
-                user.getRole());
+                user.getRole(),
+                user.getPointsBalance(),
+                user.getLifetimePoints(),
+                user.getTier());
     }
 }

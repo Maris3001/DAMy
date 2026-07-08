@@ -47,6 +47,11 @@ const routes = [
         component: () => import('../pages/account/MyBookingsPage.vue'),
       },
       {
+        path: 'diem-thuong',
+        name: 'account-points',
+        component: () => import('../pages/account/PointsPage.vue'),
+      },
+      {
         path: 'doi-mat-khau',
         name: 'account-password',
         component: () => import('../pages/account/ChangePasswordPage.vue'),

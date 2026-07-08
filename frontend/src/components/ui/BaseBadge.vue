@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-  // neutral | brand | success | warning | danger | info | gray
+  // neutral | brand | success | warning | danger | info | gray | platinum
   variant: { type: String, default: 'neutral' },
 })
 
@@ -15,6 +15,8 @@ const variantClass = {
   danger: 'bg-danger/15 text-danger border border-danger/40',
   info: 'bg-info/15 text-info border border-info/40',
   gray: 'bg-white/5 text-ink-500 border border-white/10',
+  // Hạng Platinum — trắng ánh xanh (#A5B4FC / indigo-300) theo DESIGN.md §1.2.
+  platinum: 'bg-indigo-300/15 text-indigo-300 border border-indigo-300/40',
 }
 
 const classes = computed(() => [

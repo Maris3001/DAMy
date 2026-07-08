@@ -17,6 +17,7 @@ import com.linhvecac.catalog.showtime.Showtime;
 import com.linhvecac.catalog.showtime.ShowtimeRepository;
 import com.linhvecac.catalog.showtime.ShowtimeStatus;
 import com.linhvecac.common.ApiException;
+import com.linhvecac.loyalty.LoyaltyService;
 import com.linhvecac.user.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,6 +59,8 @@ class BookingServiceTest {
     private SeatRepository seatRepository;
     @Mock
     private ConcessionRepository concessionRepository;
+    @Mock
+    private LoyaltyService loyaltyService;
 
     @InjectMocks
     private BookingService bookingService;
@@ -269,6 +272,7 @@ class BookingServiceTest {
         booking.setUser(u);
         booking.setShowtime(s);
         booking.setStatus(BookingStatus.PENDING_PAYMENT);
+        booking.setTotal(480_000);
         LocalDateTime holdExpiry = LocalDateTime.now().plusMinutes(5);
         List<BookingSeat> seats = List.of(
                 holdOf(u, s, seat(1L, "A", 1, SeatType.STANDARD, s.getRoom()), holdExpiry),
@@ -289,6 +293,8 @@ class BookingServiceTest {
         // Mỗi ghế một mã vé riêng
         assertThat(seats.get(0).getTicketCode()).isNotEqualTo(seats.get(1).getTicketCode());
         verify(bookingSeatRepository).saveAll(seats);
+        // Tích điểm đúng 1 lần trong cùng markPaid với đúng đơn + số tiền
+        verify(loyaltyService).awardForBooking(u, 50L, 480_000L);
     }
 
     @Test
@@ -300,6 +306,8 @@ class BookingServiceTest {
 
         verify(bookingRepository, never()).findByCode(any());
         verify(bookingSeatRepository, never()).saveAll(anyList());
+        // Guard idempotency: gọi lại không tích điểm lần nữa
+        verify(loyaltyService, never()).awardForBooking(any(), anyLong(), anyLong());
     }
 
     @Test

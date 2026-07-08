@@ -8,6 +8,7 @@ import { getBooking } from '../api/booking'
 import { createPayment } from '../api/payment'
 import { getApiMessage } from '../api/http'
 import { useBookingStore } from '../stores/booking'
+import { useAuthStore } from '../stores/auth'
 import { formatDate, formatTime, formatVnd } from '../utils/format'
 import BaseBadge from '../components/ui/BaseBadge.vue'
 import BaseButton from '../components/ui/BaseButton.vue'
@@ -18,6 +19,7 @@ import TicketQr from '../components/TicketQr.vue'
 const route = useRoute()
 const router = useRouter()
 const booking = useBookingStore()
+const auth = useAuthStore()
 
 const state = ref('loading') // loading | success | failed | invalid | error
 const errorMsg = ref('')
@@ -32,6 +34,7 @@ async function load() {
     try {
       order.value = await getBooking(code)
       booking.reset() // đơn đã thanh toán xong → dọn trạng thái wizard
+      auth.fetchMe().catch(() => {}) // làm mới điểm/hạng vừa tích (badge hạng, tab điểm thưởng)
       state.value = 'success'
     } catch (e) {
       errorMsg.value = getApiMessage(e, 'Không tải được thông tin vé.')
@@ -104,6 +107,16 @@ onMounted(load)
           <dd class="text-lg font-semibold text-brand-500 tabular-nums">{{ formatVnd(order.total) }}</dd>
         </div>
       </dl>
+
+      <p
+        v-if="order.earnedPoints > 0"
+        class="mt-4 flex items-center justify-center gap-1.5 rounded-md border border-brand-500/30 bg-brand-500/10 px-3 py-2 text-sm"
+      >
+        <span aria-hidden="true">⭐</span>
+        <span class="text-ink-300">Bạn nhận được</span>
+        <span class="font-semibold text-brand-500 tabular-nums">+{{ order.earnedPoints.toLocaleString('vi-VN') }} điểm</span>
+        <span class="text-ink-300">Linh Vé</span>
+      </p>
 
       <h2 class="mt-6 text-sm font-medium text-ink-300">Vé điện tử</h2>
       <div class="mt-3 flex flex-col items-center rounded-md border border-white/5 bg-surface-900 p-5">
