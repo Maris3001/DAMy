@@ -18,6 +18,8 @@ import com.linhvecac.catalog.showtime.ShowtimeRepository;
 import com.linhvecac.catalog.showtime.ShowtimeStatus;
 import com.linhvecac.common.ApiException;
 import com.linhvecac.loyalty.LoyaltyService;
+import com.linhvecac.promotion.VoucherService;
+import com.linhvecac.promotion.dto.AppliedVoucher;
 import com.linhvecac.user.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,6 +63,8 @@ class BookingServiceTest {
     private ConcessionRepository concessionRepository;
     @Mock
     private LoyaltyService loyaltyService;
+    @Mock
+    private VoucherService voucherService;
 
     @InjectMocks
     private BookingService bookingService;
@@ -213,7 +217,7 @@ class BookingServiceTest {
         when(showtimeRepository.findById(100L)).thenReturn(Optional.of(s));
         when(bookingSeatRepository.findLiveHolds(anyLong(), anyLong(), any())).thenReturn(List.of());
 
-        assertThatThrownBy(() -> bookingService.create(user(), new CreateBookingRequest(100L, List.of())))
+        assertThatThrownBy(() -> bookingService.create(user(), new CreateBookingRequest(100L, List.of(), null)))
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> {
                     assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT);
@@ -245,7 +249,7 @@ class BookingServiceTest {
         when(concessionRepository.getReferenceById(7L)).thenReturn(combo);
 
         BookingResponse response = bookingService.create(u,
-                new CreateBookingRequest(100L, List.of(new ConcessionLine(7L, 2))));
+                new CreateBookingRequest(100L, List.of(new ConcessionLine(7L, 2)), null));
 
         // 90.000 + 120.000 + 180.000 + 2 × 45.000 = 480.000
         assertThat(response.subtotal()).isEqualTo(480_000);
@@ -295,6 +299,39 @@ class BookingServiceTest {
         verify(bookingSeatRepository).saveAll(seats);
         // Tích điểm đúng 1 lần trong cùng markPaid với đúng đơn + số tiền
         verify(loyaltyService).awardForBooking(u, 50L, 480_000L);
+        // Voucher (nếu có) chuyển USED cùng transaction
+        verify(voucherService).markUsedForBooking(50L);
+    }
+
+    @Test
+    void create_khiCoVoucher_truGiamVaGiuChoPhieu() {
+        Showtime s = showtimeOpen();
+        User u = user();
+        LocalDateTime holdExpiry = LocalDateTime.now().plusMinutes(7);
+        List<BookingSeat> holds = List.of(
+                holdOf(u, s, seat(1L, "A", 1, SeatType.STANDARD, s.getRoom()), holdExpiry));
+        when(showtimeRepository.findById(100L)).thenReturn(Optional.of(s));
+        when(bookingSeatRepository.findLiveHolds(anyLong(), anyLong(), any())).thenReturn(holds);
+        when(bookingRepository.existsByCode(any())).thenReturn(false);
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> {
+            Booking b = inv.getArgument(0);
+            b.setId(77L);
+            return b;
+        });
+        when(voucherService.resolveForQuote(any(), anyLong(), any()))
+                .thenReturn(new AppliedVoucher("VCABC12345", "Giảm 20.000₫", 20_000));
+
+        BookingResponse response = bookingService.create(u,
+                new CreateBookingRequest(100L, List.of(), "VCABC12345"));
+
+        // Ghế STANDARD 90.000 − voucher 20.000 = 70.000, discount chốt server-side
+        assertThat(response.subtotal()).isEqualTo(90_000);
+        assertThat(response.discount()).isEqualTo(20_000);
+        assertThat(response.total()).isEqualTo(70_000);
+        assertThat(response.voucherCode()).isEqualTo("VCABC12345");
+        assertThat(response.voucherName()).isEqualTo("Giảm 20.000₫");
+        // Giữ chỗ phiếu cho đúng đơn vừa tạo
+        verify(voucherService).reserve(u, "VCABC12345", 77L);
     }
 
     @Test

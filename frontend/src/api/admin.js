@@ -105,6 +105,30 @@ export function adminDeleteGenre(id) {
   return http.delete(`/admin/genres/${id}`).then((res) => res.data)
 }
 
+// --- Chiến dịch khuyến mãi / voucher ---
+export function adminListCampaigns() {
+  return http.get('/admin/campaigns').then((res) => res.data)
+}
+export function adminCreateCampaign(payload) {
+  return http.post('/admin/campaigns', payload).then((res) => res.data)
+}
+export function adminUpdateCampaign(id, payload) {
+  return http.put(`/admin/campaigns/${id}`, payload).then((res) => res.data)
+}
+export function adminDeleteCampaign(id) {
+  return http.delete(`/admin/campaigns/${id}`).then((res) => res.data)
+}
+
+// --- Sinh ưu đãi cá nhân hóa (OfferEngine) ---
+export function adminRunOffers() {
+  return http.post('/admin/offers/run').then((res) => res.data)
+}
+
+// --- Thành viên theo hạng ---
+export function adminListMembers(params) {
+  return http.get('/admin/members', { params }).then((res) => res.data)
+}
+
 // --- Upload ảnh ---
 export function adminUploadImage(file) {
   const form = new FormData()

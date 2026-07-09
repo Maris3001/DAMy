@@ -1,6 +1,5 @@
 <script setup>
-// Khu tài khoản: tab điều hướng (Hồ sơ · Vé của tôi · Điểm thưởng · Đổi mật khẩu) + nội dung từng trang.
-// Tab ví voucher sẽ thêm ở P7.
+// Khu tài khoản: tab điều hướng (Hồ sơ · Vé của tôi · Điểm thưởng · Ví voucher · Đổi mật khẩu) + nội dung từng trang.
 import { computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { tierLabel, tierVariant } from '../utils/tier'
@@ -14,6 +13,7 @@ const tabs = computed(() =>
     { name: 'account-profile', label: 'Hồ sơ' },
     { name: 'account-bookings', label: 'Vé của tôi', userOnly: true },
     { name: 'account-points', label: 'Điểm thưởng', userOnly: true },
+    { name: 'account-vouchers', label: 'Ví voucher', userOnly: true },
     { name: 'account-password', label: 'Đổi mật khẩu' },
   ].filter((t) => !t.userOnly || !auth.isAdmin),
 )

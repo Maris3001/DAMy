@@ -27,10 +27,13 @@ public record BookingResponse(
         long subtotal,
         long discount,
         long total,
+        String voucherCode,
+        String voucherName,
         long earnedPoints,
         LocalDateTime expiresAt) {
 
-    public static BookingResponse from(Booking b, List<BookingSeat> seats, List<BookingConcession> concessions) {
+    public static BookingResponse from(Booking b, List<BookingSeat> seats, List<BookingConcession> concessions,
+                                       String voucherCode, String voucherName) {
         Showtime showtime = b.getShowtime();
         Room room = showtime.getRoom();
         // Điểm đã tích cho đơn — chỉ có khi đã thanh toán; dùng chung công thức với LoyaltyService.
@@ -57,6 +60,8 @@ public record BookingResponse(
                 b.getSubtotal(),
                 b.getDiscount(),
                 b.getTotal(),
+                voucherCode,
+                voucherName,
                 earnedPoints,
                 b.getExpiresAt());
     }

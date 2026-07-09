@@ -5,11 +5,13 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
-/** Ghế không nằm trong request — server lấy từ hold còn sống của user cho suất này. */
+/** Ghế không nằm trong request — server lấy từ hold còn sống của user cho suất này. voucherCode tùy chọn (P7). */
 public record CreateBookingRequest(
         @NotNull(message = "Vui lòng chọn suất chiếu")
         Long showtimeId,
 
         @Valid
-        List<ConcessionLine> concessions) {
+        List<ConcessionLine> concessions,
+
+        String voucherCode) {
 }

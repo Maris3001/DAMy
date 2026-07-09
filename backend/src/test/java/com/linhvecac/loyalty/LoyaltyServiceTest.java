@@ -1,5 +1,6 @@
 package com.linhvecac.loyalty;
 
+import com.linhvecac.common.ApiException;
 import com.linhvecac.user.Tier;
 import com.linhvecac.user.User;
 import com.linhvecac.user.UserRepository;
@@ -9,8 +10,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -112,5 +115,40 @@ class LoyaltyServiceTest {
         assertThat(history.getOldTier()).isEqualTo(Tier.SILVER);
         assertThat(history.getNewTier()).isEqualTo(Tier.GOLD);
         assertThat(history.getLifetimePointsAt()).isEqualTo(102);
+    }
+
+    @Test
+    void redeemPoints_truPointsBalanceKhongDungLifetime() {
+        User u = user();
+        u.setPointsBalance(50);
+        u.setLifetimePoints(200);
+        u.setTier(Tier.GOLD);
+
+        loyaltyService.redeemPoints(u, 30, "Đổi voucher: Giảm 20.000₫");
+
+        assertThat(u.getPointsBalance()).isEqualTo(20);
+        assertThat(u.getLifetimePoints()).isEqualTo(200); // không đụng → không tụt hạng
+        assertThat(u.getTier()).isEqualTo(Tier.GOLD);
+        verify(userRepository).save(u);
+
+        ArgumentCaptor<PointTransaction> captor = ArgumentCaptor.forClass(PointTransaction.class);
+        verify(pointTransactionRepository).save(captor.capture());
+        PointTransaction tx = captor.getValue();
+        assertThat(tx.getType()).isEqualTo(PointTransactionType.REDEEM);
+        assertThat(tx.getDelta()).isEqualTo(-30);
+        assertThat(tx.getBalanceAfter()).isEqualTo(20);
+    }
+
+    @Test
+    void redeemPoints_khongDuDiem_nem400() {
+        User u = user();
+        u.setPointsBalance(10);
+
+        assertThatThrownBy(() -> loyaltyService.redeemPoints(u, 30, "Đổi voucher"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+
+        verify(userRepository, never()).save(any());
+        verify(pointTransactionRepository, never()).save(any());
     }
 }

@@ -47,13 +47,14 @@ public class BookingController {
         return bookingService.release(user, request);
     }
 
-    /** Báo giá trước khi tạo đơn; concessions dạng "id:soLuong,id:soLuong". */
+    /** Báo giá trước khi tạo đơn; concessions dạng "id:soLuong,id:soLuong"; voucher = mã phiếu user chọn (tùy chọn). */
     @GetMapping("/quote")
     @PreAuthorize("hasRole('USER')")
     public QuoteResponse quote(@AuthenticationPrincipal User user,
                                @RequestParam Long showtimeId,
-                               @RequestParam(required = false) String concessions) {
-        return bookingService.quote(user, showtimeId, parseConcessions(concessions));
+                               @RequestParam(required = false) String concessions,
+                               @RequestParam(required = false) String voucher) {
+        return bookingService.quote(user, showtimeId, parseConcessions(concessions), voucher);
     }
 
     @PostMapping

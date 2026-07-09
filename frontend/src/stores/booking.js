@@ -14,6 +14,8 @@ function emptyState() {
     seats: [], // [{ seatId, label, seatType, price }] — bản sao hold trên server
     holdExpiresAt: null, // ISO string
     concessions: [], // [{ id, name, price, qty }]
+    voucherSelection: null, // null=tự chọn phiếu lợi nhất, 'NONE'=user bỏ áp, hoặc mã voucher user chọn
+    appliedVoucher: null, // { code, name, discount } lấy từ quote gần nhất (chỉ để hiển thị)
     booking: null, // BookingResponse sau khi tạo đơn
   }
 }
@@ -90,6 +92,8 @@ export const useBookingStore = defineStore('booking', {
       this.seats = []
       this.holdExpiresAt = null
       this.concessions = []
+      this.voucherSelection = null
+      this.appliedVoucher = null
       this.booking = null
       this.persist()
     },
@@ -124,6 +128,18 @@ export const useBookingStore = defineStore('booking', {
         this.concessions.push({ id: item.id, name: item.name, price: item.price, qty })
       }
       this.concessions = this.concessions.filter((c) => c.qty > 0)
+      this.persist()
+    },
+
+    /** Ý định chọn voucher: null=tự chọn lợi nhất, 'NONE'=bỏ áp, hoặc mã cụ thể. */
+    setVoucherSelection(selection) {
+      this.voucherSelection = selection
+      this.persist()
+    },
+
+    /** Voucher thực tế đang áp (từ quote) — để hiển thị. */
+    setAppliedVoucher(applied) {
+      this.appliedVoucher = applied
       this.persist()
     },
 

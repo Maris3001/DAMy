@@ -18,6 +18,8 @@ import com.linhvecac.catalog.showtime.ShowtimeRepository;
 import com.linhvecac.catalog.showtime.ShowtimeStatus;
 import com.linhvecac.common.ApiException;
 import com.linhvecac.loyalty.LoyaltyService;
+import com.linhvecac.promotion.VoucherService;
+import com.linhvecac.promotion.dto.AppliedVoucher;
 import com.linhvecac.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -54,6 +56,7 @@ public class BookingService {
     private final SeatRepository seatRepository;
     private final ConcessionRepository concessionRepository;
     private final LoyaltyService loyaltyService;
+    private final VoucherService voucherService;
 
     /**
      * Giữ thêm ghế: dọn hold hết hạn của các ghế xin giữ rồi INSERT — UNIQUE(showtime_id, seat_id)
@@ -164,9 +167,9 @@ public class BookingService {
         return new SeatMapResponse(showtimeId, items, holdExpiresAt);
     }
 
-    /** Báo giá từ ghế đang giữ + bắp nước đã chọn. Discount = 0 cho tới khi có voucher (P7). */
+    /** Báo giá từ ghế đang giữ + bắp nước đã chọn; tự áp voucher lợi nhất (hoặc voucherCode do user chọn). */
     @Transactional(readOnly = true)
-    public QuoteResponse quote(User user, Long showtimeId, Map<Long, Integer> concessionQty) {
+    public QuoteResponse quote(User user, Long showtimeId, Map<Long, Integer> concessionQty, String voucherCode) {
         LocalDateTime now = LocalDateTime.now();
         List<BookingSeat> holds = bookingSeatRepository.findLiveHolds(showtimeId, user.getId(), now);
         if (holds.isEmpty()) {
@@ -181,9 +184,15 @@ public class BookingService {
                 .min(Comparator.naturalOrder())
                 .orElse(null);
 
+        AppliedVoucher applied = voucherService.resolveForQuote(user, subtotal, voucherCode);
+        long discount = applied != null ? applied.discount() : 0;
+
         return new QuoteResponse(
                 holds.stream().map(HeldSeat::from).toList(),
-                lines, subtotal, 0, subtotal, holdExpiresAt);
+                lines, subtotal, discount, subtotal - discount,
+                applied != null ? applied.code() : null,
+                applied != null ? applied.name() : null,
+                holdExpiresAt);
     }
 
     /**
@@ -205,16 +214,25 @@ public class BookingService {
         long subtotal = holds.stream().mapToLong(BookingSeat::getPrice).sum()
                 + lines.stream().mapToLong(QuoteResponse.ConcessionQuoteLine::lineTotal).sum();
 
+        // Chốt voucher server-side (không tin discount từ client): resolve rồi giữ chỗ phiếu.
+        AppliedVoucher applied = voucherService.resolveForQuote(user, subtotal, request.voucherCode());
+        long discount = applied != null ? applied.discount() : 0;
+
         Booking booking = new Booking();
         booking.setCode(generateCode());
         booking.setUser(user);
         booking.setShowtime(showtime);
         booking.setStatus(BookingStatus.PENDING_PAYMENT);
         booking.setSubtotal(subtotal);
-        booking.setDiscount(0);
-        booking.setTotal(subtotal);
+        booking.setDiscount(discount);
+        booking.setTotal(subtotal - discount);
         booking.setExpiresAt(now.plusMinutes(HOLD_TTL_MIN));
         bookingRepository.save(booking);
+
+        if (applied != null) {
+            // Guard-update: nếu phiếu vừa bị đơn khác chiếm giữa chừng → 409, đơn này chưa gắn hold nên rollback sạch.
+            voucherService.reserve(user, applied.code(), booking.getId());
+        }
 
         for (BookingSeat hold : holds) {
             hold.setBooking(booking);
@@ -233,7 +251,9 @@ public class BookingService {
         }
         bookingConcessionRepository.saveAll(items);
 
-        return BookingResponse.from(booking, holds, items);
+        return BookingResponse.from(booking, holds, items,
+                applied != null ? applied.code() : null,
+                applied != null ? applied.name() : null);
     }
 
     /**
@@ -257,8 +277,10 @@ public class BookingService {
         }
         bookingSeatRepository.saveAll(seats);
         // Tích điểm + xét hạng trong cùng transaction — guard-update ở trên đảm bảo chỉ chạy 1 lần/đơn.
+        // Điểm tính trên booking.total (đã trừ voucher) — đúng ý: tích trên số tiền thực trả.
         loyaltyService.awardForBooking(booking.getUser(), booking.getId(), booking.getTotal());
-        // TODO(P7): voucher đã áp dụng cho đơn → chuyển USED tại đây.
+        // Voucher đã giữ cho đơn (nếu có) → chuyển USED.
+        voucherService.markUsedForBooking(booking.getId());
         return true;
     }
 
@@ -276,9 +298,12 @@ public class BookingService {
         Booking booking = bookingRepository.findByCode(code)
                 .filter(b -> b.getUser().getId().equals(user.getId()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn"));
+        AppliedVoucher voucher = voucherService.describeForBooking(booking.getId());
         return BookingResponse.from(booking,
                 bookingSeatRepository.findByBookingId(booking.getId()),
-                bookingConcessionRepository.findByBookingId(booking.getId()));
+                bookingConcessionRepository.findByBookingId(booking.getId()),
+                voucher != null ? voucher.code() : null,
+                voucher != null ? voucher.name() : null);
     }
 
     /** Job 60s: đơn quá hạn → EXPIRED trước, rồi xóa hold hết hạn (nhả ghế, kể cả ghế của đơn vừa hết hạn). */
@@ -287,6 +312,8 @@ public class BookingService {
         LocalDateTime now = LocalDateTime.now();
         bookingRepository.expirePendingBefore(now);
         bookingSeatRepository.deleteExpiredHolds(now);
+        // Nhả voucher của đơn vừa EXPIRED về AVAILABLE + đánh dấu phiếu quá hạn dùng.
+        voucherService.cleanupExpired(now);
     }
 
     private Showtime getOpenShowtime(Long showtimeId, LocalDateTime now) {

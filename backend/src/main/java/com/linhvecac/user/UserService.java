@@ -1,10 +1,16 @@
 package com.linhvecac.user;
 
 import com.linhvecac.common.ApiException;
+import com.linhvecac.common.PageResponse;
 import com.linhvecac.user.dto.ChangePasswordRequest;
+import com.linhvecac.user.dto.MemberResponse;
 import com.linhvecac.user.dto.UpdateProfileRequest;
 import com.linhvecac.user.dto.UserResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,6 +35,16 @@ public class UserService {
         user.setPhone(request.phone());
         user.setBirthDate(request.birthDate());
         return UserResponse.from(userRepository.save(user));
+    }
+
+    /** Danh sách thành viên (role USER) cho admin, lọc tùy chọn theo hạng, phân trang mới-nhất-trước. */
+    @Transactional(readOnly = true)
+    public PageResponse<MemberResponse> adminMembers(Tier tier, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "lifetimePoints"));
+        Page<User> result = (tier == null)
+                ? userRepository.findByRole(Role.USER, pageable)
+                : userRepository.findByRoleAndTier(Role.USER, tier, pageable);
+        return PageResponse.of(result, MemberResponse::from);
     }
 
     @Transactional

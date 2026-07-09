@@ -15,6 +15,8 @@ const menu = [
   { name: 'admin-showtimes', label: 'Lịch chiếu', icon: '🕒' },
   { name: 'admin-rooms', label: 'Rạp & phòng', icon: '🏢' },
   { name: 'admin-concessions', label: 'Bắp nước', icon: '🍿' },
+  { name: 'admin-campaigns', label: 'Voucher', icon: '🎫' },
+  { name: 'admin-offers', label: 'Ưu đãi & Thành viên', icon: '🎁' },
 ]
 
 function logout() {

@@ -1,17 +1,20 @@
 <script setup>
 // Bước 6 (P-06): báo giá server-side → "Xác nhận đặt vé" tạo đơn PENDING_PAYMENT →
 // "Thanh toán qua VNPay" khởi tạo payment và redirect sang cổng (P5).
-import { inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createBooking, getQuote } from '../../api/booking'
+import { getMyVouchers } from '../../api/voucher'
 import { createPayment } from '../../api/payment'
 import { getApiMessage } from '../../api/http'
 import { useBookingStore } from '../../stores/booking'
 import { formatDate, formatTime, formatVnd } from '../../utils/format'
 import BaseBadge from '../../components/ui/BaseBadge.vue'
 import BaseButton from '../../components/ui/BaseButton.vue'
+import BaseModal from '../../components/ui/BaseModal.vue'
 import LoadingState from '../../components/ui/LoadingState.vue'
 import ErrorState from '../../components/ui/ErrorState.vue'
+import VoucherCard from '../../components/VoucherCard.vue'
 
 const booking = useBookingStore()
 const router = useRouter()
@@ -23,6 +26,11 @@ const quote = ref(null)
 const creating = ref(false)
 const paying = ref(false)
 
+// Voucher
+const myVouchers = ref([]) // phiếu AVAILABLE của user
+const voucherModalOpen = ref(false)
+const availableVouchers = computed(() => myVouchers.value.filter((v) => v.status === 'AVAILABLE'))
+
 async function loadQuote() {
   if (booking.booking) {
     state.value = 'ok' // đã có đơn → hiện màn kết quả, không cần báo giá
@@ -30,7 +38,17 @@ async function loadQuote() {
   }
   state.value = 'loading'
   try {
-    quote.value = await getQuote(booking.showtime.id, booking.concessionQtyMap)
+    quote.value = await getQuote(
+      booking.showtime.id,
+      booking.concessionQtyMap,
+      booking.voucherSelection || undefined,
+    )
+    // Ghi lại voucher thực tế đang áp (server chốt) để hiển thị nhất quán.
+    booking.setAppliedVoucher(
+      quote.value.voucherCode
+        ? { code: quote.value.voucherCode, name: quote.value.voucherName, discount: quote.value.discount }
+        : null,
+    )
     state.value = 'ok'
   } catch (e) {
     if (e.response?.status === 409) {
@@ -45,10 +63,27 @@ async function loadQuote() {
   }
 }
 
+async function loadMyVouchers() {
+  try {
+    myVouchers.value = await getMyVouchers()
+  } catch {
+    myVouchers.value = [] // không chặn luồng nếu lỗi tải voucher
+  }
+}
+
+/** Áp một voucher cụ thể (hoặc bỏ áp / tự chọn) rồi tính lại giá. */
+async function applyVoucher(selection) {
+  booking.setVoucherSelection(selection)
+  voucherModalOpen.value = false
+  await loadQuote()
+}
+
 async function confirm() {
   creating.value = true
   try {
-    booking.setBooking(await createBooking(booking.showtime.id, booking.concessionLines))
+    booking.setBooking(
+      await createBooking(booking.showtime.id, booking.concessionLines, booking.voucherSelection || undefined),
+    )
   } catch (e) {
     if (e.response?.status === 409) {
       booking.clearSeats()
@@ -86,7 +121,10 @@ function startOver() {
   router.push('/')
 }
 
-onMounted(loadQuote)
+onMounted(() => {
+  loadQuote()
+  loadMyVouchers()
+})
 </script>
 
 <template>
@@ -129,6 +167,10 @@ onMounted(loadQuote)
             <dd class="text-ink-100">
               {{ booking.booking.concessions.map((c) => `${c.name} ×${c.quantity}`).join(', ') }}
             </dd>
+          </div>
+          <div v-if="booking.booking.discount > 0" class="flex justify-between">
+            <dt class="text-ink-500">Voucher{{ booking.booking.voucherName ? ` · ${booking.booking.voucherName}` : '' }}</dt>
+            <dd class="text-success tabular-nums">−{{ formatVnd(booking.booking.discount) }}</dd>
           </div>
           <div class="flex justify-between border-t border-white/5 pt-2">
             <dt class="text-ink-300">Tổng cộng</dt>
@@ -189,7 +231,33 @@ onMounted(loadQuote)
       </div>
 
       <aside class="h-fit rounded-lg border border-white/5 bg-surface-800 p-5">
-        <dl class="space-y-2 text-sm">
+        <!-- Voucher -->
+        <div class="rounded-md border border-white/5 bg-surface-900/60 p-3">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-medium text-ink-100">🎫 Voucher</span>
+            <button
+              type="button"
+              class="text-sm text-brand-500 hover:underline"
+              @click="voucherModalOpen = true"
+            >
+              {{ quote.voucherCode ? 'Đổi' : 'Chọn voucher' }}
+            </button>
+          </div>
+          <div v-if="quote.voucherCode" class="mt-2 flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <p class="truncate text-sm text-ink-100">{{ quote.voucherName }}</p>
+              <p class="text-xs text-success">−{{ formatVnd(quote.discount) }}</p>
+            </div>
+            <button type="button" class="shrink-0 text-xs text-ink-500 hover:text-danger" @click="applyVoucher('NONE')">
+              Bỏ áp dụng
+            </button>
+          </div>
+          <p v-else class="mt-1 text-xs text-ink-500">
+            {{ availableVouchers.length ? 'Chưa áp voucher nào.' : 'Bạn chưa có voucher khả dụng.' }}
+          </p>
+        </div>
+
+        <dl class="mt-4 space-y-2 text-sm">
           <div class="flex justify-between">
             <dt class="text-ink-300">Tạm tính</dt>
             <dd class="tabular-nums text-ink-100">{{ formatVnd(quote.subtotal) }}</dd>
@@ -203,13 +271,41 @@ onMounted(loadQuote)
             <dd class="text-2xl font-semibold text-brand-500 tabular-nums">{{ formatVnd(quote.total) }}</dd>
           </div>
         </dl>
-        <p class="mt-3 text-sm text-ink-500">
-          Ưu đãi thành viên và voucher sẽ được áp dụng ở giai đoạn tiếp theo.
-        </p>
         <div class="mt-5">
           <BaseButton size="lg" block :loading="creating" @click="confirm">Xác nhận đặt vé</BaseButton>
         </div>
       </aside>
     </div>
+
+    <!-- ===== Modal chọn voucher ===== -->
+    <BaseModal :open="voucherModalOpen" title="Chọn voucher" @close="voucherModalOpen = false">
+      <div class="space-y-3">
+        <button
+          type="button"
+          class="w-full rounded-lg border p-3 text-left text-sm transition hover:border-brand-500/60"
+          :class="!booking.voucherSelection ? 'border-brand-500 ring-1 ring-brand-500 text-ink-100' : 'border-white/5 text-ink-300'"
+          @click="applyVoucher(null)"
+        >
+          ✨ Tự động chọn voucher lợi nhất
+        </button>
+
+        <VoucherCard
+          v-for="v in availableVouchers"
+          :key="v.id"
+          :voucher="v"
+          selectable
+          :selected="quote?.voucherCode === v.code"
+          @select="applyVoucher(v.code)"
+        />
+
+        <p v-if="!availableVouchers.length" class="py-6 text-center text-sm text-ink-500">
+          Bạn chưa có voucher khả dụng. Đổi điểm lấy voucher ở mục Tài khoản → Ví voucher.
+        </p>
+      </div>
+      <template #footer>
+        <BaseButton variant="ghost" @click="applyVoucher('NONE')">Không dùng voucher</BaseButton>
+        <BaseButton variant="secondary" @click="voucherModalOpen = false">Đóng</BaseButton>
+      </template>
+    </BaseModal>
   </section>
 </template>

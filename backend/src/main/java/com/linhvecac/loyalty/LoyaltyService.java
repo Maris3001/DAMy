@@ -74,6 +74,30 @@ public class LoyaltyService {
         }
     }
 
+    /**
+     * Trừ điểm khi đổi voucher (P7) — chỉ đụng points_balance, KHÔNG đụng lifetime_points nên không tụt hạng.
+     * Ghi 1 dòng sổ điểm REDEEM (delta âm). Ném 400 nếu số dư không đủ. Chạy trong transaction của caller.
+     */
+    @Transactional
+    public void redeemPoints(User user, long cost, String description) {
+        if (cost <= 0) {
+            return;
+        }
+        if (user.getPointsBalance() < cost) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Số dư điểm không đủ để đổi ưu đãi này");
+        }
+        user.setPointsBalance(user.getPointsBalance() - cost);
+        userRepository.save(user);
+
+        PointTransaction tx = new PointTransaction();
+        tx.setUserId(user.getId());
+        tx.setType(PointTransactionType.REDEEM);
+        tx.setDelta(-cost);
+        tx.setBalanceAfter(user.getPointsBalance());
+        tx.setDescription(description);
+        pointTransactionRepository.save(tx);
+    }
+
     @Transactional(readOnly = true)
     public LoyaltySummaryResponse getSummary(Long userId) {
         User user = userRepository.findById(userId)

@@ -52,6 +52,11 @@ const routes = [
         component: () => import('../pages/account/PointsPage.vue'),
       },
       {
+        path: 'vi-voucher',
+        name: 'account-vouchers',
+        component: () => import('../pages/account/VouchersPage.vue'),
+      },
+      {
         path: 'doi-mat-khau',
         name: 'account-password',
         component: () => import('../pages/account/ChangePasswordPage.vue'),
@@ -151,6 +156,16 @@ const routes = [
         path: 'concessions',
         name: 'admin-concessions',
         component: () => import('../pages/admin/ConcessionsPage.vue'),
+      },
+      {
+        path: 'campaigns',
+        name: 'admin-campaigns',
+        component: () => import('../pages/admin/CampaignsPage.vue'),
+      },
+      {
+        path: 'offers',
+        name: 'admin-offers',
+        component: () => import('../pages/admin/OffersPage.vue'),
       },
     ],
   },

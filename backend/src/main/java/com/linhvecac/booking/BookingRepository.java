@@ -39,6 +39,14 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             """)
     int markPaidIfPending(@Param("code") String code);
 
+    /** ID các user có đơn PAID kể từ mốc thời gian — OfferEngine dùng cho quy tắc win-back / thể loại yêu thích. */
+    @Query("""
+            SELECT DISTINCT b.user.id FROM Booking b
+            WHERE b.status = com.linhvecac.booking.BookingStatus.PAID
+              AND b.createdAt >= :since
+            """)
+    List<Long> findUserIdsWithPaidBookingSince(@Param("since") LocalDateTime since);
+
     /** Chuyển các đơn chờ thanh toán quá hạn sang EXPIRED — chạy bởi job dọn dẹp. */
     @Modifying(clearAutomatically = true)
     @Query("""
