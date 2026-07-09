@@ -16,6 +16,15 @@ public interface BookingSeatRepository extends JpaRepository<BookingSeat, Long> 
 
     boolean existsByTicketCode(String ticketCode);
 
+    /** Số vé đã bán (ghế CONFIRMED của đơn PAID) trong khoảng [from, to) — stat vé hôm nay/hôm qua. */
+    @Query("""
+            SELECT COUNT(bs) FROM BookingSeat bs
+            WHERE bs.status = com.linhvecac.booking.BookingSeatStatus.CONFIRMED
+              AND bs.booking.status = com.linhvecac.booking.BookingStatus.PAID
+              AND bs.booking.createdAt >= :from AND bs.booking.createdAt < :to
+            """)
+    long countSoldBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
     /** Các row còn hiệu lực của suất (đã bán, hoặc hold chưa hết hạn) — để vẽ sơ đồ ghế. */
     @Query("""
             SELECT bs FROM BookingSeat bs

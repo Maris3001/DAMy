@@ -1,11 +1,12 @@
 <script setup>
 // Tab "Điểm thưởng": số điểm hiện có, tiến độ lên hạng, quyền lợi từng hạng, lịch sử điểm.
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { getLoyaltySummary, getPointHistory } from '../../api/loyalty'
 import { getApiMessage } from '../../api/http'
 import { formatDate, formatTime } from '../../utils/format'
 import { TIER_ORDER, TIERS, tierLabel, tierVariant } from '../../utils/tier'
 import BaseBadge from '../../components/ui/BaseBadge.vue'
+import FilterChips from '../../components/ui/FilterChips.vue'
 import LoadingState from '../../components/ui/LoadingState.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import ErrorState from '../../components/ui/ErrorState.vue'
@@ -15,12 +16,28 @@ const state = ref('loading') // loading | ok | error
 const errorMsg = ref('')
 const summary = ref(null)
 const history = ref([])
+const txnFilter = ref('ALL') // lọc lịch sử điểm client-side: cộng (delta≥0) / trừ (delta<0)
 
 const TXN = {
   EARN: { sign: '+', label: 'Tích điểm' },
   REDEEM: { sign: '−', label: 'Đổi điểm' },
   ADJUST: { sign: '', label: 'Điều chỉnh' },
 }
+
+const filterOptions = computed(() => {
+  const earned = history.value.filter((t) => t.delta >= 0).length
+  return [
+    { value: 'ALL', label: 'Tất cả', count: history.value.length },
+    { value: 'EARN', label: 'Cộng điểm', count: earned },
+    { value: 'REDEEM', label: 'Trừ điểm', count: history.value.length - earned },
+  ]
+})
+
+const filteredHistory = computed(() => {
+  if (txnFilter.value === 'EARN') return history.value.filter((t) => t.delta >= 0)
+  if (txnFilter.value === 'REDEEM') return history.value.filter((t) => t.delta < 0)
+  return history.value
+})
 
 function signedDelta(tx) {
   const meta = TXN[tx.type] || {}
@@ -103,9 +120,17 @@ onMounted(load)
         title="Chưa có giao dịch điểm"
         message="Điểm sẽ được cộng sau mỗi lần thanh toán vé thành công."
       />
-      <ul v-else class="mt-3 space-y-2">
+      <template v-else>
+        <FilterChips v-model="txnFilter" :options="filterOptions" class="mt-3" />
+        <EmptyState
+          v-if="!filteredHistory.length"
+          class="mt-3"
+          title="Không có giao dịch phù hợp"
+          message="Không có giao dịch nào ở nhóm này."
+        />
+        <ul v-else class="mt-3 space-y-2">
         <li
-          v-for="tx in history"
+          v-for="tx in filteredHistory"
           :key="tx.id"
           class="flex items-center justify-between gap-4 rounded-lg border border-white/5 bg-surface-800 px-4 py-3"
         >
@@ -123,7 +148,8 @@ onMounted(load)
             <p class="text-xs text-ink-500 tabular-nums">Số dư: {{ tx.balanceAfter.toLocaleString('vi-VN') }}</p>
           </div>
         </li>
-      </ul>
+        </ul>
+      </template>
     </div>
   </div>
 </template>

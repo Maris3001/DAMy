@@ -64,10 +64,10 @@
 - [x] Admin: CRUD `/api/admin/campaigns` + `POST /api/admin/offers/run` + `GET /api/admin/members?tier=` (thành viên theo hạng, phân trang). FE: tab "Ví voucher" (đổi điểm), voucher selector ở bước thanh toán, admin CampaignsPage + OffersPage.
 - **Kiểm tra:** ✅ `mvnw test` xanh (50 test — `VoucherServiceTest` 11: discountFor cap/fixed/min_order, findBest chọn max + tie-break, reserve 409, redeem trừ điểm không tụt hạng; `OfferEngineTest` 2: idempotent chạy 2 lần cấp 1 voucher; `LoyaltyServiceTest` +redeemPoints; `BookingServiceTest` +voucher). E2E API thật xanh: earn 36 điểm → đổi voucher → quote auto-áp giảm 20k → tạo đơn giữ voucher → mock pay → voucher USED; admin offers idempotent. **Gotcha đã fix:** `@Modifying` voucher trong transaction markPaid/create cần `flushAutomatically=true` (không thì `clearAutomatically` xóa thay đổi điểm/ghế chưa flush → mất điểm); `reserveIfAvailable` KHÔNG được `clearAutomatically` (detach hold/booking create dùng lại → LazyInit).
 
-### P8 — Lịch sử, dashboard, hoàn thiện
-- [ ] Member: lịch sử giao dịch/điểm/voucher có filter. Admin dashboard: doanh thu theo ngày, top phim, phân bố hạng.
-- [ ] Polish: rà chữ tiếng Việt, empty/loading/error state, responsive; README hướng dẫn chạy; test cho `LoyaltyService`, `VoucherService` (chọn best voucher), seat-hold conflict.
-- **Kiểm tra:** số liệu dashboard khớp query tay trong SSMS; `.\mvnw.cmd test` xanh; `npm run build` sạch.
+### P8 — Lịch sử, dashboard, hoàn thiện ✅ HOÀN THÀNH
+- [x] Member: lịch sử giao dịch/điểm/voucher có filter (client-side trên 3 tab sẵn có — Vé của tôi/Điểm thưởng/Ví voucher, `components/ui/FilterChips.vue`). Admin dashboard (`GET /api/admin/dashboard?days=`): doanh thu theo ngày (biểu đồ cột), top 5 phim, phân bố hạng (donut) — slice `com.linhvecac.dashboard`, biểu đồ SVG/div tự vẽ (không thêm dependency).
+- [x] Polish: 3 trạng thái loading/empty/error đủ trên trang mới; `README.md` gốc hướng dẫn chạy; `DashboardServiceTest` (zero-fill ngày trống + phân bố đủ 3 hạng + map stat). `LoyaltyServiceTest`/`VoucherServiceTest`/seat-hold conflict đã có từ P6/P7/P4.
+- **Kiểm tra:** ✅ `mvnw test` xanh (53 test, gồm `DashboardServiceTest`); context-load chạm DB thật (JPQL validate); E2E API thật: login admin → `GET /api/admin/dashboard` trả 30 ngày zero-fill + top phim + phân bố hạng khớp DB, USER→403, no-token→401; `npm run build` sạch. **Gotcha:** `CAST(... AS date)` trong constructor-expression JPQL không được Hibernate nhận → doanh thu theo ngày dùng **native query** `CONVERT(date, created_at)` map Object[] trong service (các aggregate khác vẫn JPQL constructor-expression bình thường).
 
 ## Schema chính (Flyway V1→V11, `backend/src/main/resources/db/migration/`; V8 = ảnh poster/backdrop phim)
 

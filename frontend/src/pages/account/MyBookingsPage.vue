@@ -1,12 +1,13 @@
 <script setup>
 // Tab "Vé của tôi": danh sách đơn của user (mới nhất trước). Đơn đã thanh toán → xem lại vé + QR.
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { listMyBookings } from '../../api/booking'
 import { getApiMessage } from '../../api/http'
 import { formatDate, formatTime, formatVnd } from '../../utils/format'
 import BaseBadge from '../../components/ui/BaseBadge.vue'
 import BaseButton from '../../components/ui/BaseButton.vue'
+import FilterChips from '../../components/ui/FilterChips.vue'
 import LoadingState from '../../components/ui/LoadingState.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import ErrorState from '../../components/ui/ErrorState.vue'
@@ -15,6 +16,7 @@ const router = useRouter()
 const state = ref('loading') // loading | ok | error
 const errorMsg = ref('')
 const bookings = ref([])
+const statusFilter = ref('ALL') // lọc client-side theo trạng thái đơn
 
 const STATUS = {
   PAID: { variant: 'success', label: 'Đã thanh toán' },
@@ -22,6 +24,27 @@ const STATUS = {
   EXPIRED: { variant: 'gray', label: 'Hết hạn' },
   CANCELLED: { variant: 'danger', label: 'Đã hủy' },
 }
+
+// Nhãn filter kèm số lượng từng nhóm (đếm trên list đã tải).
+const filterOptions = computed(() => {
+  const counts = bookings.value.reduce((acc, b) => {
+    acc[b.status] = (acc[b.status] || 0) + 1
+    return acc
+  }, {})
+  return [
+    { value: 'ALL', label: 'Tất cả', count: bookings.value.length },
+    { value: 'PAID', label: 'Đã thanh toán', count: counts.PAID || 0 },
+    { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán', count: counts.PENDING_PAYMENT || 0 },
+    { value: 'EXPIRED', label: 'Hết hạn', count: counts.EXPIRED || 0 },
+    { value: 'CANCELLED', label: 'Đã hủy', count: counts.CANCELLED || 0 },
+  ]
+})
+
+const filteredBookings = computed(() =>
+  statusFilter.value === 'ALL'
+    ? bookings.value
+    : bookings.value.filter((b) => b.status === statusFilter.value),
+)
 
 async function load() {
   state.value = 'loading'
@@ -50,9 +73,18 @@ onMounted(load)
     message="Bạn chưa đặt vé nào. Khám phá phim đang chiếu và đặt vé ngay nhé!"
   />
 
-  <ul v-else class="space-y-3">
+  <div v-else>
+    <FilterChips v-model="statusFilter" :options="filterOptions" class="mb-4" />
+
+    <EmptyState
+      v-if="!filteredBookings.length"
+      title="Không có đơn phù hợp"
+      message="Không có đơn nào ở trạng thái này. Thử chọn bộ lọc khác nhé."
+    />
+
+    <ul v-else class="space-y-3">
     <li
-      v-for="b in bookings"
+      v-for="b in filteredBookings"
       :key="b.code"
       class="flex gap-4 rounded-lg border border-white/5 bg-surface-800 p-4"
     >
@@ -88,5 +120,6 @@ onMounted(load)
         </div>
       </div>
     </li>
-  </ul>
+    </ul>
+  </div>
 </template>

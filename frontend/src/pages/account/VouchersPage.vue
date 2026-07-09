@@ -1,6 +1,6 @@
 <script setup>
 // Tab "Ví voucher": danh sách phiếu của user + đổi điểm lấy voucher.
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { getMyVouchers, getRedeemableCampaigns, redeemVoucher } from '../../api/voucher'
 import { getApiMessage } from '../../api/http'
 import { useAuthStore } from '../../stores/auth'
@@ -8,6 +8,7 @@ import { formatVnd } from '../../utils/format'
 import { voucherDiscountLabel } from '../../utils/voucher'
 import { tierLabel } from '../../utils/tier'
 import BaseButton from '../../components/ui/BaseButton.vue'
+import FilterChips from '../../components/ui/FilterChips.vue'
 import LoadingState from '../../components/ui/LoadingState.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import ErrorState from '../../components/ui/ErrorState.vue'
@@ -21,6 +22,26 @@ const vouchers = ref([])
 const redeemables = ref([])
 const redeemingId = ref(null)
 const notice = ref(null) // { type: 'success' | 'error', text }
+const statusFilter = ref('ALL') // lọc ví voucher client-side theo trạng thái phiếu
+
+// RESERVED (đang giữ giữa chừng thanh toán) gộp vào nhóm "Có thể dùng" cho gọn.
+const filterOptions = computed(() => {
+  const count = (fn) => vouchers.value.filter(fn).length
+  return [
+    { value: 'ALL', label: 'Tất cả', count: vouchers.value.length },
+    { value: 'AVAILABLE', label: 'Có thể dùng', count: count((v) => v.status === 'AVAILABLE' || v.status === 'RESERVED') },
+    { value: 'USED', label: 'Đã dùng', count: count((v) => v.status === 'USED') },
+    { value: 'EXPIRED', label: 'Hết hạn', count: count((v) => v.status === 'EXPIRED') },
+  ]
+})
+
+const filteredVouchers = computed(() => {
+  if (statusFilter.value === 'AVAILABLE') {
+    return vouchers.value.filter((v) => v.status === 'AVAILABLE' || v.status === 'RESERVED')
+  }
+  if (statusFilter.value === 'ALL') return vouchers.value
+  return vouchers.value.filter((v) => v.status === statusFilter.value)
+})
 
 async function load() {
   state.value = 'loading'
@@ -77,9 +98,19 @@ onMounted(load)
         title="Chưa có voucher nào"
         message="Đổi điểm lấy voucher bên dưới, hoặc nhận ưu đãi cá nhân hóa từ hệ thống."
       />
-      <div v-else class="mt-3 grid gap-3 sm:grid-cols-2">
-        <VoucherCard v-for="v in vouchers" :key="v.id" :voucher="v" />
-      </div>
+      <template v-else>
+        <FilterChips v-model="statusFilter" :options="filterOptions" class="mt-3" />
+        <EmptyState
+          v-if="!filteredVouchers.length"
+          class="mt-3"
+          icon="🎫"
+          title="Không có voucher phù hợp"
+          message="Không có phiếu nào ở trạng thái này."
+        />
+        <div v-else class="mt-3 grid gap-3 sm:grid-cols-2">
+          <VoucherCard v-for="v in filteredVouchers" :key="v.id" :voucher="v" />
+        </div>
+      </template>
     </section>
 
     <!-- ===== Đổi điểm lấy voucher ===== -->

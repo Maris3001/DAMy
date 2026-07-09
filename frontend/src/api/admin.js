@@ -129,6 +129,11 @@ export function adminListMembers(params) {
   return http.get('/admin/members', { params }).then((res) => res.data)
 }
 
+// --- Dashboard (doanh thu, top phim, phân bố hạng) ---
+export function adminGetDashboard(params) {
+  return http.get('/admin/dashboard', { params }).then((res) => res.data)
+}
+
 // --- Upload ảnh ---
 export function adminUploadImage(file) {
   const form = new FormData()
