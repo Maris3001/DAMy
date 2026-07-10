@@ -36,13 +36,13 @@ public class AdminConcessionController {
     }
 
     @PutMapping("/{id}")
-    public ConcessionResponse update(@PathVariable Long id, @Valid @RequestBody ConcessionRequest request) {
+    public ConcessionResponse update(@PathVariable("id") Long id, @Valid @RequestBody ConcessionRequest request) {
         return concessionService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
+    public void delete(@PathVariable("id") Long id) {
         concessionService.delete(id);
     }
 }

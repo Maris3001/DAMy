@@ -40,7 +40,7 @@ public class AdminCinemaController {
     }
 
     @GetMapping("/cinemas")
-    public List<CinemaResponse> cinemas(@RequestParam(required = false) Long regionId) {
+    public List<CinemaResponse> cinemas(@RequestParam(name = "regionId", required = false) Long regionId) {
         return cinemaService.listCinemas(regionId);
     }
 
@@ -51,13 +51,13 @@ public class AdminCinemaController {
     }
 
     @PutMapping("/cinemas/{id}")
-    public CinemaResponse update(@PathVariable Long id, @Valid @RequestBody CinemaRequest request) {
+    public CinemaResponse update(@PathVariable("id") Long id, @Valid @RequestBody CinemaRequest request) {
         return cinemaService.updateCinema(id, request);
     }
 
     @DeleteMapping("/cinemas/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
+    public void delete(@PathVariable("id") Long id) {
         cinemaService.deleteCinema(id);
     }
 }

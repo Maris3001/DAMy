@@ -20,7 +20,7 @@ public class ShowtimeSeatController {
 
     @GetMapping("/{id}/seats")
     @PreAuthorize("hasRole('USER')")
-    public SeatMapResponse seatMap(@PathVariable Long id, @AuthenticationPrincipal User user) {
+    public SeatMapResponse seatMap(@PathVariable("id") Long id, @AuthenticationPrincipal User user) {
         return bookingService.getSeatMap(id, user);
     }
 }

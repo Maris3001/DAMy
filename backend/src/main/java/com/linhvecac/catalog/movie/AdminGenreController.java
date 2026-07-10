@@ -36,13 +36,13 @@ public class AdminGenreController {
     }
 
     @PutMapping("/{id}")
-    public GenreResponse update(@PathVariable Long id, @Valid @RequestBody GenreRequest request) {
+    public GenreResponse update(@PathVariable("id") Long id, @Valid @RequestBody GenreRequest request) {
         return genreService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
+    public void delete(@PathVariable("id") Long id) {
         genreService.delete(id);
     }
 }

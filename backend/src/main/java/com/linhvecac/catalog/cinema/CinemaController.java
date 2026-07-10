@@ -23,15 +23,15 @@ public class CinemaController {
     private final ShowtimeService showtimeService;
 
     @GetMapping
-    public List<CinemaResponse> list(@RequestParam(required = false) Long regionId) {
+    public List<CinemaResponse> list(@RequestParam(name = "regionId", required = false) Long regionId) {
         return cinemaService.listCinemas(regionId);
     }
 
     /** Suất chiếu của rạp trong ngày, gộp theo phim — bước 3 wizard đặt vé. */
     @GetMapping("/{id}/showtimes")
     public List<MovieShowtimes> showtimes(
-            @PathVariable Long id,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @PathVariable("id") Long id,
+            @RequestParam(name = "date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return showtimeService.listByCinemaAndDate(id, date);
     }
 }

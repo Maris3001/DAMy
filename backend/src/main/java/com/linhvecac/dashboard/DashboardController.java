@@ -16,7 +16,7 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @GetMapping
-    public DashboardResponse get(@RequestParam(defaultValue = "30") int days) {
+    public DashboardResponse get(@RequestParam(name = "days", defaultValue = "30") int days) {
         return dashboardService.getDashboard(days);
     }
 }

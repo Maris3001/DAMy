@@ -29,7 +29,7 @@ public class AdminRoomController {
     private final CinemaService cinemaService;
 
     @GetMapping
-    public List<RoomResponse> list(@RequestParam Long cinemaId) {
+    public List<RoomResponse> list(@RequestParam(name = "cinemaId") Long cinemaId) {
         return cinemaService.listRooms(cinemaId);
     }
 
@@ -40,29 +40,29 @@ public class AdminRoomController {
     }
 
     @PutMapping("/{id}")
-    public RoomResponse update(@PathVariable Long id, @Valid @RequestBody RoomRequest request) {
+    public RoomResponse update(@PathVariable("id") Long id, @Valid @RequestBody RoomRequest request) {
         return cinemaService.updateRoom(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
+    public void delete(@PathVariable("id") Long id) {
         cinemaService.deleteRoom(id);
     }
 
     @GetMapping("/{id}/seats")
-    public List<SeatResponse> seats(@PathVariable Long id) {
+    public List<SeatResponse> seats(@PathVariable("id") Long id) {
         return cinemaService.listSeats(id);
     }
 
     @PostMapping("/{id}/seats/generate")
-    public List<SeatResponse> generateSeats(@PathVariable Long id,
+    public List<SeatResponse> generateSeats(@PathVariable("id") Long id,
                                             @Valid @RequestBody GenerateSeatsRequest request) {
         return cinemaService.generateSeats(id, request);
     }
 
     @PutMapping("/{id}/seats")
-    public List<SeatResponse> updateSeats(@PathVariable Long id,
+    public List<SeatResponse> updateSeats(@PathVariable("id") Long id,
                                           @Valid @RequestBody SeatUpdateRequest request) {
         return cinemaService.updateSeats(id, request);
     }

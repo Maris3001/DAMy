@@ -29,9 +29,9 @@ public class AdminShowtimeController {
 
     @GetMapping
     public List<ShowtimeAdminResponse> list(
-            @RequestParam(required = false) Long cinemaId,
-            @RequestParam(required = false) Long roomId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam(name = "cinemaId", required = false) Long cinemaId,
+            @RequestParam(name = "roomId", required = false) Long roomId,
+            @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return showtimeService.adminList(cinemaId, roomId, date);
     }
 
@@ -42,13 +42,13 @@ public class AdminShowtimeController {
     }
 
     @PutMapping("/{id}")
-    public ShowtimeAdminResponse update(@PathVariable Long id, @Valid @RequestBody ShowtimeRequest request) {
+    public ShowtimeAdminResponse update(@PathVariable("id") Long id, @Valid @RequestBody ShowtimeRequest request) {
         return showtimeService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
+    public void delete(@PathVariable("id") Long id) {
         showtimeService.delete(id);
     }
 }

@@ -25,7 +25,7 @@ public class RegionController {
     }
 
     @GetMapping("/{id}/cinemas")
-    public List<CinemaResponse> cinemas(@PathVariable Long id) {
+    public List<CinemaResponse> cinemas(@PathVariable("id") Long id) {
         return cinemaService.listCinemas(id);
     }
 }

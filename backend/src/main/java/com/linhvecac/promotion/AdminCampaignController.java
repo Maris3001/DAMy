@@ -37,13 +37,13 @@ public class AdminCampaignController {
     }
 
     @PutMapping("/{id}")
-    public CampaignResponse update(@PathVariable Long id, @Valid @RequestBody CampaignRequest request) {
+    public CampaignResponse update(@PathVariable("id") Long id, @Valid @RequestBody CampaignRequest request) {
         return campaignService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
+    public void delete(@PathVariable("id") Long id) {
         campaignService.delete(id);
     }
 }

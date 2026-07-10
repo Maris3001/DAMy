@@ -51,9 +51,9 @@ public class BookingController {
     @GetMapping("/quote")
     @PreAuthorize("hasRole('USER')")
     public QuoteResponse quote(@AuthenticationPrincipal User user,
-                               @RequestParam Long showtimeId,
-                               @RequestParam(required = false) String concessions,
-                               @RequestParam(required = false) String voucher) {
+                               @RequestParam(name = "showtimeId") Long showtimeId,
+                               @RequestParam(name = "concessions", required = false) String concessions,
+                               @RequestParam(name = "voucher", required = false) String voucher) {
         return bookingService.quote(user, showtimeId, parseConcessions(concessions), voucher);
     }
 
@@ -73,7 +73,7 @@ public class BookingController {
 
     /** Chi tiết đơn (kèm vé nếu đã thanh toán) — chỉ chủ đơn xem được, khác chủ trả 404. */
     @GetMapping("/{code}")
-    public BookingResponse getByCode(@AuthenticationPrincipal User user, @PathVariable String code) {
+    public BookingResponse getByCode(@AuthenticationPrincipal User user, @PathVariable("code") String code) {
         return bookingService.getByCode(user, code);
     }
 

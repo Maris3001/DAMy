@@ -29,8 +29,8 @@ public class MockPaymentController {
     }
 
     @GetMapping(value = "/api/payments/mock/pay", produces = MediaType.TEXT_HTML_VALUE)
-    public ResponseEntity<String> pay(@RequestParam String txnRef,
-                                      @RequestParam(required = false) String outcome) {
+    public ResponseEntity<String> pay(@RequestParam(name = "txnRef") String txnRef,
+                                      @RequestParam(name = "outcome", required = false) String outcome) {
         if (outcome == null) {
             return ResponseEntity.ok(choicePage(txnRef));
         }

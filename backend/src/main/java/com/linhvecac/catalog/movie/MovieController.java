@@ -23,19 +23,19 @@ public class MovieController {
     private final ShowtimeService showtimeService;
 
     @GetMapping
-    public List<MovieResponse> list(@RequestParam(required = false) MovieStatus status) {
+    public List<MovieResponse> list(@RequestParam(name = "status", required = false) MovieStatus status) {
         return movieService.listPublic(status);
     }
 
     @GetMapping("/{id}")
-    public MovieResponse get(@PathVariable Long id) {
+    public MovieResponse get(@PathVariable("id") Long id) {
         return movieService.get(id);
     }
 
     @GetMapping("/{id}/showtimes")
     public List<CinemaShowtimes> showtimes(
-            @PathVariable Long id,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @PathVariable("id") Long id,
+            @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return showtimeService.listByMovieAndDate(id, date != null ? date : LocalDate.now());
     }
 }

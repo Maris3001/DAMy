@@ -17,9 +17,9 @@ public class AdminMemberController {
     private final UserService userService;
 
     @GetMapping
-    public PageResponse<MemberResponse> list(@RequestParam(required = false) Tier tier,
-                                             @RequestParam(defaultValue = "0") int page,
-                                             @RequestParam(defaultValue = "20") int size) {
+    public PageResponse<MemberResponse> list(@RequestParam(name = "tier", required = false) Tier tier,
+                                             @RequestParam(name = "page", defaultValue = "0") int page,
+                                             @RequestParam(name = "size", defaultValue = "20") int size) {
         return userService.adminMembers(tier, page, size);
     }
 }

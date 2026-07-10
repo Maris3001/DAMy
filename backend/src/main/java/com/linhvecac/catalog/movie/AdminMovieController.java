@@ -26,9 +26,9 @@ public class AdminMovieController {
 
     @GetMapping
     public PageResponse<MovieResponse> list(
-            @RequestParam(required = false) String search,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(name = "search", required = false) String search,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         return movieService.adminList(search, page, size);
     }
 
@@ -39,13 +39,13 @@ public class AdminMovieController {
     }
 
     @PutMapping("/{id}")
-    public MovieResponse update(@PathVariable Long id, @Valid @RequestBody MovieRequest request) {
+    public MovieResponse update(@PathVariable("id") Long id, @Valid @RequestBody MovieRequest request) {
         return movieService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
+    public void delete(@PathVariable("id") Long id) {
         movieService.delete(id);
     }
 }
